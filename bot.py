@@ -1,5 +1,7 @@
 import discord
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 import os
 import random
 from dotenv import load_dotenv
@@ -9,7 +11,6 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-openai.api_key = OPENAI_API_KEY
 
 # Define Discord intents
 intents = discord.Intents.default()
@@ -162,20 +163,18 @@ async def on_message(message):
         return  # Ignore other messages
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": BEEBOT_PERSONALITY
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.7
-        )
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": BEEBOT_PERSONALITY
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0.7)
         await message.channel.send(response.choices[0].message.content)
 
     except Exception as e:
@@ -199,20 +198,18 @@ async def on_thread_create(thread):
             "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, and invite them to share more if they wish."
         )
 
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": BEEBOT_PERSONALITY
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.7
-        )
+        response = client.chat.completions.create(model="gpt-3.5-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": BEEBOT_PERSONALITY
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0.7)
         ai_message = response.choices[0].message.content
 
         await thread.send(ai_message)
