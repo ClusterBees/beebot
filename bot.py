@@ -1,7 +1,6 @@
 import discord
 import os
-from dotenv import load_dotenv
-from openai import OpenAIError
+from dotenv import load_dotenv 
 from openai import OpenAI
 import random
 
