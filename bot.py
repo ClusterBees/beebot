@@ -1,10 +1,11 @@
 import discord
-from openai import OpenAI
-
-client = OpenAI(api_key=OPENAI_API_KEY)
 import os
-import random
 from dotenv import load_dotenv
+from openai import OpenAIError
+from openai import OpenAI
+import random
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Load environment variables
 load_dotenv()
