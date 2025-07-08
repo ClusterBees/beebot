@@ -6,14 +6,11 @@ import random
 
 load_dotenv()
 
-print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
-client = OpenAI()
+# Initialize OpenAI client
+client_ai = OpenAI()
 
 # Load environment variables
-load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 
 # Define Discord intents
 intents = discord.Intents.default()
@@ -68,7 +65,6 @@ async def get_or_create_error_channel(guild):
     for channel in guild.text_channels:
         if channel.name == channel_name:
             return channel
-    # Channel does not exist, create it
     try:
         return await guild.create_text_channel(channel_name)
     except Exception as e:
@@ -84,7 +80,6 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    # !venmo command
     if message.content.startswith("!venmo"):
         venmo_message = (
             "🐝✨ Here is my Venmo info, sweet human:\n\n"
@@ -94,7 +89,6 @@ async def on_message(message):
         await message.channel.send(venmo_message)
         return
 
-    # !bee-help command
     if message.content.startswith("!bee-help"):
         help_message = (
             "🐝✨ **BeeBot Commands:**\n\n"
@@ -110,13 +104,11 @@ async def on_message(message):
         await message.channel.send(help_message)
         return
 
-    # !bee-fact command
     if message.content.startswith("!bee-fact"):
         fact = random.choice(BEE_FACTS)
         await message.channel.send(fact)
         return
 
-    # !bee-support command
     if message.content.startswith("!bee-support"):
         support_message = (
             "🌻 **Here are some mental health support resources:**\n\n"
@@ -128,7 +120,6 @@ async def on_message(message):
         await message.channel.send(support_message)
         return
 
-    # !bee-mood command
     if message.content.startswith("!bee-mood"):
         mood = message.content[len("!bee-mood "):].strip()
         if mood:
@@ -138,7 +129,6 @@ async def on_message(message):
         await message.channel.send(response)
         return
 
-    # !bee-gratitude command
     if message.content.startswith("!bee-gratitude"):
         gratitude = message.content[len("!bee-gratitude "):].strip()
         if gratitude:
@@ -148,36 +138,27 @@ async def on_message(message):
         await message.channel.send(response)
         return
 
-    # !bee-validate command
     if message.content.startswith("!bee-validate"):
         validation = random.choice(BEE_VALIDATION)
         await message.channel.send(validation)
         return
 
-    # If message is in a DM
     if isinstance(message.channel, discord.DMChannel):
         prompt = message.content.strip()
-
-    # Or if message is in a guild and starts with !ask
     elif message.content.startswith("!ask"):
         prompt = message.content[len("!ask "):].strip()
-
     else:
-        return  # Ignore other messages
+        return
 
     try:
-        response = client.chat.completions.create(model="gpt-3.5-turbo",
-        messages=[
-            {
-                "role": "system",
-                "content": BEEBOT_PERSONALITY
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.7)
+        response = client_ai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
         await message.channel.send(response.choices[0].message.content)
 
     except Exception as e:
@@ -190,29 +171,23 @@ async def on_message(message):
 @client.event
 async def on_thread_create(thread):
     try:
-        # Fetch the first message in the thread (forum post)
         messages = [message async for message in thread.history(limit=1)]
         first_post_content = messages[0].content if messages else "No content provided."
 
-        # Combine thread title and post content into the prompt
         prompt = (
             f"A user has created a new forum thread titled '{thread.name}' with the following post:\n\n"
             f"{first_post_content}\n\n"
             "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, and invite them to share more if they wish."
         )
 
-        response = client.chat.completions.create(model="gpt-3.5-turbo",
-        messages=[
-            {
-                "role": "system",
-                "content": BEEBOT_PERSONALITY
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.7)
+        response = client_ai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
         ai_message = response.choices[0].message.content
 
         await thread.send(ai_message)
