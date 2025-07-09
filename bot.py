@@ -150,7 +150,7 @@ async def on_message(message):
         await message.channel.send(validation)
         return
 
-    # Handling messages in 'beebot-questions' channel, DMs, or with !ask command
+    # Handling messages in 'beebot-answers' channel, thread, DMs, or with !ask command
     if isinstance(message.channel, discord.DMChannel):
         prompt = message.content.strip()
         prompt_messages = [
@@ -160,8 +160,11 @@ async def on_message(message):
     else:
         guild_id = str(message.guild.id)
         channel_name = message.channel.name
+        is_thread = isinstance(message.channel, discord.Thread)
+        thread_name = message.channel.name if is_thread else None
 
-        if channel_name == "beebot-questions":
+        # Check for channel or thread named 'beebot-answers'
+        if channel_name == "beebot-answers" or (is_thread and thread_name == "beebot-answers"):
             prompt = message.content.strip()
 
             store_message_in_memory(guild_id, prompt)
