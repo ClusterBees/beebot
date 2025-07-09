@@ -16,7 +16,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
-intents.guilds = True
+intents.guilds = True  # Needed for forum posts and channel management
 intents.dm_messages = True
 
 # Create Discord client
@@ -39,7 +39,7 @@ BEE_FACTS = [
     "🍯 Bees are essential pollinators, supporting over a third of the food we eat!"
 ]
 
-# Compliments and validation messages (kept as fallback)
+# Compliments and validation messages
 BEE_VALIDATION = [
     "🐝✨ You are such a bright and gentle soul, and the world is sweeter with you in it. 💛",
     "🍯 You are doing so well, even on days you doubt yourself. Your effort matters, and so do you. 🌻",
@@ -50,18 +50,22 @@ BEE_VALIDATION = [
     "🐝 You deserve rest, peace, and moments of gentle sweetness. Please be kind to yourself today. 💛"
 ]
 
+# In-memory guild context store
 guild_memory = {}
 
 def store_message_in_memory(guild_id, message_content, max_memory=10):
     if guild_id not in guild_memory:
         guild_memory[guild_id] = []
     guild_memory[guild_id].append({"role": "user", "content": message_content})
+
+    # Keep only the last 'max_memory' messages
     if len(guild_memory[guild_id]) > max_memory:
         guild_memory[guild_id] = guild_memory[guild_id][-max_memory:]
 
 def fetch_memory_for_guild(guild_id):
     return guild_memory.get(guild_id, [])
 
+# Utility function to get or create error log channel
 async def get_or_create_error_channel(guild):
     channel_name = "beebot-errors"
     for channel in guild.text_channels:
@@ -73,78 +77,27 @@ async def get_or_create_error_channel(guild):
         print(f"Failed to create error channel: {e}")
         return None
 
-async def get_or_create_forum_channel(guild):
-    forum_name = "beebot-questions"
-    for channel in guild.channels:
-        if isinstance(channel, discord.ForumChannel) and channel.name == forum_name:
-            return channel
-    try:
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-        }
-        return await guild.create_forum_channel(forum_name, overwrites=overwrites, reason="Creating BeeBot forum channel")
-    except Exception as e:
-        print(f"Failed to create forum channel: {e}")
-        error_channel = await get_or_create_error_channel(guild)
-        if error_channel:
-            await error_channel.send(f"🐝 **BeeBot Forum Channel Error:** `{e}`")
-        return None
-
 @client.event
 async def on_ready():
     print(f'{client.user} has connected to Discord! 🐝✨')
-    for guild in client.guilds:
-        await get_or_create_forum_channel(guild)
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    # --- Forum first post auto-response ---
-    if isinstance(message.channel, discord.Thread):
-        parent = message.channel.parent
-        if isinstance(parent, discord.ForumChannel):
-            # Check if this is the first message in the thread
-            history = [msg async for msg in message.channel.history(limit=2, oldest_first=True)]
-            if len(history) == 1 and history[0].id == message.id:
-                try:
-                    prompt = (
-                        f"A user has created a new forum thread titled '{message.channel.name}' with the following post:\n\n"
-                        f"{message.content}\n\n"
-                        "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
-                    )
-
-                    response = client_ai.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": BEEBOT_PERSONALITY},
-                            {"role": "user", "content": prompt}
-                        ],
-                        temperature=0.8
-                    )
-                    ai_message = response.choices[0].message.content
-                    await message.channel.send(ai_message)
-
-                except Exception as e:
-                    print(f"Error sending AI reply to thread: {e}")
-                    if message.guild:
-                        error_channel = await get_or_create_error_channel(message.guild)
-                        if error_channel:
-                            await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
-            return
-
-    # --- Existing commands ---
+    # Command handlers
     if message.content.startswith("!venmo"):
-        await message.channel.send(
+        venmo_message = (
             "🐝✨ Here is my Venmo info, sweet human:\n\n"
             "**@TrinketGoblinTV**\n"
             "🍯 Thank you for your support and kindness that keeps me running. Remember, you are never too much. 💛"
         )
+        await message.channel.send(venmo_message)
         return
 
     if message.content.startswith("!bee-help"):
-        await message.channel.send(
+        help_message = (
             "🐝✨ **BeeBot Commands:**\n\n"
             "`!ask [question]` : Ask BeeBot anything for mental health support or validation.\n"
             "`!venmo` : Get BeeBot's Venmo info to support development.\n"
@@ -155,67 +108,120 @@ async def on_message(message):
             "`!bee-gratitude [something you're grateful for]` – Share gratitude and positivity with the hive.\n"
             "`!bee-validate` : Receive a gentle compliment or validation message. 💛\n"
         )
+        await message.channel.send(help_message)
         return
 
     if message.content.startswith("!bee-fact"):
-        await message.channel.send(random.choice(BEE_FACTS))
+        fact = random.choice(BEE_FACTS)
+        await message.channel.send(fact)
         return
 
     if message.content.startswith("!bee-support"):
-        await message.channel.send(
+        support_message = (
             "🌻 **Here are some mental health support resources:**\n\n"
             "• [988 Suicide & Crisis Lifeline (US)](https://988lifeline.org) – call or text 988 anytime\n"
             "• [Trans Lifeline](https://translifeline.org) – 877-565-8860 (US)\n"
             "• [International hotlines](https://findahelpline.com)\n\n"
             "🐝 Remember, reaching out for help is a brave and strong choice. You are never too much. 💛"
         )
+        await message.channel.send(support_message)
         return
 
     if message.content.startswith("!bee-mood"):
         mood = message.content[len("!bee-mood "):].strip()
         if mood:
-            await message.channel.send(
-                f"🐝✨ Thank you for sharing your mood: **{mood}**.\n🍯 Sending you warmth and gentle support today, sweet human. 💛"
-            )
+            response = f"🐝✨ Thank you for sharing your mood: **{mood}**.\n🍯 Sending you warmth and gentle support today, sweet human. 💛"
         else:
-            await message.channel.send("🐝 Please share your mood after the command, like `!bee-mood tired but hopeful`.")
+            response = "🐝 Please share your mood after the command, like `!bee-mood tired but hopeful`."
+        await message.channel.send(response)
         return
 
     if message.content.startswith("!bee-gratitude"):
         gratitude = message.content[len("!bee-gratitude "):].strip()
         if gratitude:
-            await message.channel.send(
-                f"🌻✨ Thank you for sharing your gratitude: **{gratitude}**.\n🐝 May your heart feel nourished by this sweetness today. 💛"
-            )
+            response = f"🌻✨ Thank you for sharing your gratitude: **{gratitude}**.\n🐝 May your heart feel nourished by this sweetness today. 💛"
         else:
-            await message.channel.send("🐝 Please share what you're grateful for after the command, like `!bee-gratitude my friends and morning tea`.")
+            response = "🐝 Please share what you're grateful for after the command, like `!bee-gratitude my friends and morning tea`."
+        await message.channel.send(response)
         return
 
     if message.content.startswith("!bee-validate"):
-        try:
-            prompt = (
-                "Please create a short, warm, validating message for a user. "
-                "Include bee-themed emojis naturally (🐝🍯🌻). "
-                "Speak with compassion, avoid judgmental language, and remind them they are never 'too much'. "
-                "Always phrase it uniquely and vary sentence structure to keep it fresh and supportive."
-            )
-
-            response = client_ai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": BEEBOT_PERSONALITY},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.9
-            )
-            ai_message = response.choices[0].message.content
-            await message.channel.send(ai_message)
-
-        except Exception as e:
-            print(f"Error generating validation: {e}")
-            # fallback to static validation
-            validation = random.choice(BEE_VALIDATION)
-            await message.channel.send(validation)
+        validation = random.choice(BEE_VALIDATION)
+        await message.channel.send(validation)
         return
+
+    # Handling !ask command and DMs with memory integration
+    if isinstance(message.channel, discord.DMChannel):
+        prompt = message.content.strip()
+        prompt_messages = [
+            {"role": "system", "content": BEEBOT_PERSONALITY},
+            {"role": "user", "content": prompt}
+        ]
+    else:
+        if message.content.startswith("!ask"):
+            prompt = message.content[len("!ask "):].strip()
+            guild_id = str(message.guild.id)
+
+            # Store message content to memory for this guild
+            store_message_in_memory(guild_id, prompt)
+
+            # Fetch existing memory for this guild
+            context = fetch_memory_for_guild(guild_id)
+
+            # Build prompt with memory context
+            prompt_messages = [
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                *context,
+                {"role": "user", "content": prompt}
+            ]
+        else:
+            return
+
+    # OpenAI API call
+    try:
+        response = client_ai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=prompt_messages,
+            temperature=0.8
+        )
+        await message.channel.send(response.choices[0].message.content)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        if message.guild:
+            error_channel = await get_or_create_error_channel(message.guild)
+            if error_channel:
+                await error_channel.send(f"🐝 **BeeBot Error:** `{e}`")
+
+@client.event
+async def on_thread_create(thread):
+    try:
+        messages = [message async for message in thread.history(limit=1)]
+        first_post_content = messages[0].content if messages else "No content provided."
+
+        prompt = (
+            f"A user has created a new forum thread titled '{thread.name}' with the following post:\n\n"
+            f"{first_post_content}\n\n"
+            "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
+        )
+
+        response = client_ai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8
+        )
+        ai_message = response.choices[0].message.content
+
+        await thread.send(ai_message)
+
+    except Exception as e:
+        print(f"Error sending AI reply to thread: {e}")
+        if thread.guild:
+            error_channel = await get_or_create_error_channel(thread.guild)
+            if error_channel:
+                await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
 
 client.run(DISCORD_TOKEN)
