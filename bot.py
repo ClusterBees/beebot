@@ -157,7 +157,7 @@ async def on_message(message):
                 {"role": "system", "content": BEEBOT_PERSONALITY},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7
+            temperature=0.9
         )
         await message.channel.send(response.choices[0].message.content)
 
