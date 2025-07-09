@@ -39,7 +39,7 @@ BEE_FACTS = [
     "🍯 Bees are essential pollinators, supporting over a third of the food we eat!"
 ]
 
-# Compliments and validation messages
+# Compliments and validation messages (kept as fallback)
 BEE_VALIDATION = [
     "🐝✨ You are such a bright and gentle soul, and the world is sweeter with you in it. 💛",
     "🍯 You are doing so well, even on days you doubt yourself. Your effort matters, and so do you. 🌻",
@@ -104,7 +104,6 @@ async def on_message(message):
     # --- Forum first post auto-response ---
     if isinstance(message.channel, discord.Thread):
         if message.id == message.channel.id:
-            # This is the first message in the thread
             try:
                 prompt = (
                     f"A user has created a new forum thread titled '{message.channel.name}' with the following post:\n\n"
@@ -189,7 +188,30 @@ async def on_message(message):
         return
 
     if message.content.startswith("!bee-validate"):
-        await message.channel.send(random.choice(BEE_VALIDATION))
+        try:
+            prompt = (
+                "Please create a short, warm, validating message for a user. "
+                "Include bee-themed emojis naturally (🐝🍯🌻). "
+                "Speak with compassion, avoid judgmental language, and remind them they are never 'too much'. "
+                "Always phrase it uniquely and vary sentence structure to keep it fresh and supportive."
+            )
+
+            response = client_ai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": BEEBOT_PERSONALITY},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.9
+            )
+            ai_message = response.choices[0].message.content
+            await message.channel.send(ai_message)
+
+        except Exception as e:
+            print(f"Error generating validation: {e}")
+            # fallback to static validation
+            validation = random.choice(BEE_VALIDATION)
+            await message.channel.send(validation)
         return
 
 client.run(DISCORD_TOKEN)
