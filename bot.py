@@ -96,8 +96,22 @@ async def on_guild_join(guild):
             print(f"Created role 'Beebot' in {guild.name}")
         except Exception as e:
             print(f"Failed to create Beebot role in {guild.name}: {e}")
+            beebot_role = None
     else:
+        beebot_role = existing_role
         print(f"Beebot role already exists in {guild.name}")
+
+    # Assign role to BeeBot user
+    if beebot_role:
+        bot_member = guild.get_member(client.user.id)
+        if bot_member:
+            try:
+                await bot_member.add_roles(beebot_role, reason="Assigning Beebot role to itself")
+                print(f"Assigned Beebot role to {client.user.name} in {guild.name}")
+            except Exception as e:
+                print(f"Failed to assign Beebot role to bot user in {guild.name}: {e}")
+        else:
+            print(f"Could not find bot member in {guild.name}")
 
     # Create beebot-🐝 channel
     channel_name = "beebot-🐝"
