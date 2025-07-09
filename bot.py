@@ -202,7 +202,7 @@ async def on_thread_create(thread):
         prompt = (
             f"A user has created a new forum thread titled '{thread.name}' with the following post:\n\n"
             f"{first_post_content}\n\n"
-            "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, and invite them to share more if they wish."
+            "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
         )
 
         response = client_ai.chat.completions.create(
