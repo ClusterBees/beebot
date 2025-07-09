@@ -71,6 +71,51 @@ async def on_ready():
     print(f'{client.user} has connected to Discord! 🐝✨')
 
 @client.event
+async def on_guild_join(guild):
+    # Create Beebot role
+    existing_role = discord.utils.get(guild.roles, name="Beebot")
+    if not existing_role:
+        try:
+            beebot_role = await guild.create_role(
+                name="Beebot",
+                permissions=discord.Permissions(
+                    send_messages=True,
+                    read_messages=True,
+                    read_message_history=True,
+                    embed_links=True,
+                    attach_files=True,
+                    use_external_emojis=True,
+                    add_reactions=True,
+                    view_channel=True,
+                    manage_roles=True,
+                    manage_channels=True,
+                    manage_threads=True
+                ),
+                reason="Beebot setup role with necessary permissions"
+            )
+            print(f"Created role 'Beebot' in {guild.name}")
+        except Exception as e:
+            print(f"Failed to create Beebot role in {guild.name}: {e}")
+    else:
+        print(f"Beebot role already exists in {guild.name}")
+
+    # Create beebot-🐝 channel
+    channel_name = "beebot-🐝"
+    existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if not existing_channel:
+        try:
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                guild.me: discord.PermissionOverwrite(read_messages=True)
+            }
+            await guild.create_text_channel(channel_name, overwrites=overwrites, reason="Beebot main channel")
+            print(f"Created channel '{channel_name}' in {guild.name}")
+        except Exception as e:
+            print(f"Failed to create channel {channel_name} in {guild.name}: {e}")
+    else:
+        print(f"Channel '{channel_name}' already exists in {guild.name}")
+
+@client.event
 async def on_message(message):
     if message.author == client.user:
         return
