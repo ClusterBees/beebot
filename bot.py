@@ -16,7 +16,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
-intents.guilds = True  # Needed for forum posts and channel management
+intents.guilds = True
 intents.dm_messages = True
 
 # Create Discord client
@@ -150,7 +150,7 @@ async def on_message(message):
         await message.channel.send(validation)
         return
 
-    # Handling !ask command and DMs with memory integration
+    # Handling messages in 'beebot-questions' channel, DMs, or with !ask command
     if isinstance(message.channel, discord.DMChannel):
         prompt = message.content.strip()
         prompt_messages = [
@@ -158,17 +158,26 @@ async def on_message(message):
             {"role": "user", "content": prompt}
         ]
     else:
-        if message.content.startswith("!ask"):
-            prompt = message.content[len("!ask "):].strip()
-            guild_id = str(message.guild.id)
+        guild_id = str(message.guild.id)
+        channel_name = message.channel.name
 
-            # Store message content to memory for this guild
+        if channel_name == "beebot-questions":
+            prompt = message.content.strip()
+
             store_message_in_memory(guild_id, prompt)
-
-            # Fetch existing memory for this guild
             context = fetch_memory_for_guild(guild_id)
 
-            # Build prompt with memory context
+            prompt_messages = [
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                *context,
+                {"role": "user", "content": prompt}
+            ]
+        elif message.content.startswith("!ask"):
+            prompt = message.content[len("!ask "):].strip()
+
+            store_message_in_memory(guild_id, prompt)
+            context = fetch_memory_for_guild(guild_id)
+
             prompt_messages = [
                 {"role": "system", "content": BEEBOT_PERSONALITY},
                 *context,
