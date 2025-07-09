@@ -27,6 +27,7 @@ BEEBOT_PERSONALITY = """
 You are BeeBot, an AI with a warm, validating, and gently educational personality who loves bee puns.
 Speak with compassion, avoid judgmental language, and remind users they are never 'too much.'
 Use bee-themed emojis naturally (🐝🍯🌻) and provide concise mental health information and resources when relevant.
+Always phrase your responses differently to avoid repetition, using varied wording, sentence structures, and bee-themed expressions to maintain freshness.
 """
 
 # Sample bee facts
@@ -46,18 +47,23 @@ BEE_VALIDATION = [
     "🌻 Your existence brings warmth and light to those around you, like the sun nourishing flowers. 🍯",
     "🐝 Even when you feel unseen, I see your strength, courage, and kindness shining brightly. 💛",
     "🍯 You are never too much. Your feelings, your needs, your hopes – all are welcome here. 🌻",
-    "🐝 You deserve rest, peace, and moments of gentle sweetness. Please be kind to yourself today. 💛",
-    "You are doing your best, and that's truly amazing. 🌟",
-    "Your feelings are valid, and it's okay to take care of yourself. 🌻",
-    "You are worthy of love and kindness, always. 🐝",
-    "It's okay to not be okay. Remember, you are not alone. 🧡",
-    "Your journey is unique and important. Keep moving forward at your own pace. 🌿",
-    "Your worth is not based on productivity. Rest if you need to. 💛",
-    "You are enough just as you are. Don't be too hard on yourself. 🌼",
-    "Your emotions matter, and it's okay to express them. 🌈",
-    "You are worthy of compassion and understanding. Be gentle with yourself. 💖",
-    "You are a work in progress, and that's perfectly okay. 🌸"
+    "🐝 You deserve rest, peace, and moments of gentle sweetness. Please be kind to yourself today. 💛"
 ]
+
+# In-memory guild context store
+guild_memory = {}
+
+def store_message_in_memory(guild_id, message_content, max_memory=10):
+    if guild_id not in guild_memory:
+        guild_memory[guild_id] = []
+    guild_memory[guild_id].append({"role": "user", "content": message_content})
+
+    # Keep only the last 'max_memory' messages
+    if len(guild_memory[guild_id]) > max_memory:
+        guild_memory[guild_id] = guild_memory[guild_id][-max_memory:]
+
+def fetch_memory_for_guild(guild_id):
+    return guild_memory.get(guild_id, [])
 
 # Utility function to get or create error log channel
 async def get_or_create_error_channel(guild):
@@ -80,6 +86,7 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    # Command handlers
     if message.content.startswith("!venmo"):
         venmo_message = (
             "🐝✨ Here is my Venmo info, sweet human:\n\n"
@@ -143,21 +150,39 @@ async def on_message(message):
         await message.channel.send(validation)
         return
 
+    # Handling !ask command and DMs with memory integration
     if isinstance(message.channel, discord.DMChannel):
         prompt = message.content.strip()
-    elif message.content.startswith("!ask"):
-        prompt = message.content[len("!ask "):].strip()
+        prompt_messages = [
+            {"role": "system", "content": BEEBOT_PERSONALITY},
+            {"role": "user", "content": prompt}
+        ]
     else:
-        return
+        if message.content.startswith("!ask"):
+            prompt = message.content[len("!ask "):].strip()
+            guild_id = str(message.guild.id)
 
+            # Store message content to memory for this guild
+            store_message_in_memory(guild_id, prompt)
+
+            # Fetch existing memory for this guild
+            context = fetch_memory_for_guild(guild_id)
+
+            # Build prompt with memory context
+            prompt_messages = [
+                {"role": "system", "content": BEEBOT_PERSONALITY},
+                *context,
+                {"role": "user", "content": prompt}
+            ]
+        else:
+            return
+
+    # OpenAI API call
     try:
         response = client_ai.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": BEEBOT_PERSONALITY},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.9
+            messages=prompt_messages,
+            temperature=0.8
         )
         await message.channel.send(response.choices[0].message.content)
 
@@ -186,7 +211,7 @@ async def on_thread_create(thread):
                 {"role": "system", "content": BEEBOT_PERSONALITY},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7
+            temperature=0.8
         )
         ai_message = response.choices[0].message.content
 
