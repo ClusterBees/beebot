@@ -154,7 +154,7 @@ async def on_message(message):
                     await error_channel.send(f"🐝 **BeeBot Error:** `{e}`")
         return
 
-    # Handling messages in 'beebot-answers' channel, DMs, or with !ask command
+    # Handling messages in 'beebot-🐝' channel, DMs, or with !ask command
     if isinstance(message.channel, discord.DMChannel):
         prompt = message.content.strip()
         prompt_messages = [
@@ -165,7 +165,7 @@ async def on_message(message):
         guild_id = str(message.guild.id)
         channel_name = message.channel.name
 
-        if channel_name == "beebot-answers":
+        if channel_name == "beebot-🐝":
             prompt = message.content.strip()
 
             store_message_in_memory(guild_id, prompt)
