@@ -39,17 +39,6 @@ BEE_FACTS = [
     "🍯 Bees are essential pollinators, supporting over a third of the food we eat!"
 ]
 
-# Compliments and validation messages
-BEE_VALIDATION = [
-    "🐝✨ You are such a bright and gentle soul, and the world is sweeter with you in it. 💛",
-    "🍯 You are doing so well, even on days you doubt yourself. Your effort matters, and so do you. 🌻",
-    "🐝 You carry so much wisdom and beauty within you. Please don’t ever forget how deeply loved you are. 💛",
-    "🌻 Your existence brings warmth and light to those around you, like the sun nourishing flowers. 🍯",
-    "🐝 Even when you feel unseen, I see your strength, courage, and kindness shining brightly. 💛",
-    "🍯 You are never too much. Your feelings, your needs, your hopes – all are welcome here. 🌻",
-    "🐝 You deserve rest, peace, and moments of gentle sweetness. Please be kind to yourself today. 💛"
-]
-
 # In-memory guild context store
 guild_memory = {}
 
@@ -146,8 +135,23 @@ async def on_message(message):
         return
 
     if message.content.startswith("!bee-validate"):
-        validation = random.choice(BEE_VALIDATION)
-        await message.channel.send(validation)
+        prompt_messages = [
+            {"role": "system", "content": BEEBOT_PERSONALITY},
+            {"role": "user", "content": "Please give me a warm, validating compliment or message, as BeeBot would say, including bee puns and emojis naturally."}
+        ]
+        try:
+            response = client_ai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=prompt_messages,
+                temperature=0.8
+            )
+            await message.channel.send(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Error: {e}")
+            if message.guild:
+                error_channel = await get_or_create_error_channel(message.guild)
+                if error_channel:
+                    await error_channel.send(f"🐝 **BeeBot Error:** `{e}`")
         return
 
     # Handling messages in 'beebot-answers' channel, DMs, or with !ask command
