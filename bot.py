@@ -101,6 +101,37 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    # --- Forum first post auto-response ---
+    if isinstance(message.channel, discord.Thread):
+        if message.id == message.channel.id:
+            # This is the first message in the thread
+            try:
+                prompt = (
+                    f"A user has created a new forum thread titled '{message.channel.name}' with the following post:\n\n"
+                    f"{message.content}\n\n"
+                    "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
+                )
+
+                response = client_ai.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": BEEBOT_PERSONALITY},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.8
+                )
+                ai_message = response.choices[0].message.content
+                await message.channel.send(ai_message)
+
+            except Exception as e:
+                print(f"Error sending AI reply to thread: {e}")
+                if message.guild:
+                    error_channel = await get_or_create_error_channel(message.guild)
+                    if error_channel:
+                        await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
+            return
+
+    # --- Existing commands ---
     if message.content.startswith("!venmo"):
         await message.channel.send(
             "🐝✨ Here is my Venmo info, sweet human:\n\n"
@@ -160,35 +191,5 @@ async def on_message(message):
     if message.content.startswith("!bee-validate"):
         await message.channel.send(random.choice(BEE_VALIDATION))
         return
-
-@client.event
-async def on_thread_create(thread):
-    try:
-        messages = [message async for message in thread.history(limit=1)]
-        first_post_content = messages[0].content if messages else "No content provided."
-
-        prompt = (
-            f"A user has created a new forum thread titled '{thread.name}' with the following post:\n\n"
-            f"{first_post_content}\n\n"
-            "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
-        )
-
-        response = client_ai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": BEEBOT_PERSONALITY},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.8
-        )
-        ai_message = response.choices[0].message.content
-        await thread.send(ai_message)
-
-    except Exception as e:
-        print(f"Error sending AI reply to thread: {e}")
-        if thread.guild:
-            error_channel = await get_or_create_error_channel(thread.guild)
-            if error_channel:
-                await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
 
 client.run(DISCORD_TOKEN)
