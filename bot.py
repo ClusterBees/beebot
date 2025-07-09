@@ -103,31 +103,35 @@ async def on_message(message):
 
     # --- Forum first post auto-response ---
     if isinstance(message.channel, discord.Thread):
-        if message.id == message.channel.id:
-            try:
-                prompt = (
-                    f"A user has created a new forum thread titled '{message.channel.name}' with the following post:\n\n"
-                    f"{message.content}\n\n"
-                    "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
-                )
+        parent = message.channel.parent
+        if isinstance(parent, discord.ForumChannel):
+            # Check if this is the first message in the thread
+            history = [msg async for msg in message.channel.history(limit=2, oldest_first=True)]
+            if len(history) == 1 and history[0].id == message.id:
+                try:
+                    prompt = (
+                        f"A user has created a new forum thread titled '{message.channel.name}' with the following post:\n\n"
+                        f"{message.content}\n\n"
+                        "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
+                    )
 
-                response = client_ai.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": BEEBOT_PERSONALITY},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.8
-                )
-                ai_message = response.choices[0].message.content
-                await message.channel.send(ai_message)
+                    response = client_ai.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": BEEBOT_PERSONALITY},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.8
+                    )
+                    ai_message = response.choices[0].message.content
+                    await message.channel.send(ai_message)
 
-            except Exception as e:
-                print(f"Error sending AI reply to thread: {e}")
-                if message.guild:
-                    error_channel = await get_or_create_error_channel(message.guild)
-                    if error_channel:
-                        await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
+                except Exception as e:
+                    print(f"Error sending AI reply to thread: {e}")
+                    if message.guild:
+                        error_channel = await get_or_create_error_channel(message.guild)
+                        if error_channel:
+                            await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
             return
 
     # --- Existing commands ---
