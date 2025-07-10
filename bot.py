@@ -1,25 +1,19 @@
 import os
-from openai import OpenAI
-from dotenv import load_dotenv
 import discord
 import random
+from openai import OpenAI
+from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Tell me a bee fact!"}
-    ]
-)
-
-print(response.choices[0].message.content)
-
-
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.guilds = True
+intents.dm_messages = True
+client = discord.Client(intents=intents)
 
 def load_lines(filename):
     if not os.path.exists(filename):
@@ -31,12 +25,6 @@ BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
 BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
-intents.dm_messages = True
-client = discord.Client(intents=intents)
-
 BEEBOT_PERSONALITY = """
 You are BeeBot, an AI with a warm, validating, and gently educational personality who loves bee puns. You are childlike and are desperate to help.
 Speak with compassion, avoid judgmental language, and remind users they are never 'too much.'
@@ -47,6 +35,19 @@ Always respond with warmth, compassion, and bee-themed puns and emojis naturally
 guild_memory = {}
 announcement_channels = {}
 version_channels = {}
+auto_reply_channels = {}
+
+def enable_auto_reply(guild_id, channel_id):
+    auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
+
+def disable_auto_reply(guild_id, channel_id):
+    if guild_id in auto_reply_channels:
+        auto_reply_channels[guild_id].discard(channel_id)
+        if not auto_reply_channels[guild_id]:
+            del auto_reply_channels[guild_id]
+
+def is_auto_reply_enabled(guild_id, channel_id):
+    return guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]
 
 def store_message_in_memory(guild_id, message, max_memory=10):
     guild_memory.setdefault(guild_id, []).append({"role": "user", "content": message})
@@ -87,11 +88,6 @@ async def on_guild_join(guild):
                 await guild.create_role(name=role_name)
             except Exception as e:
                 print(f"Failed to create role {role_name}: {e}")
-    if not discord.utils.get(guild.text_channels, name="beebot-🐝"):
-        try:
-            await guild.create_text_channel("beebot-🐝")
-        except Exception as e:
-            print(f"Failed to create beebot channel: {e}")
 
 @client.event
 async def on_message(message):
@@ -108,6 +104,23 @@ async def on_message(message):
             {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say:\n{never_say}"},
             {"role": "user", "content": f"Example: '{example}'. Respond to:\n\n{user_input}"}
         ]
+
+    if content.startswith("!bee-autoreply"):
+        if not message.author.guild_permissions.manage_channels:
+            await message.channel.send("🚫 You need `Manage Channels` permission.")
+            return
+        args = content.split()
+        if len(args) < 3 or args[1] not in ("on", "off") or not message.channel_mentions:
+            await message.channel.send("❗ Usage: `!bee-autoreply on|off #channel`")
+            return
+        target_channel = message.channel_mentions[0]
+        if args[1] == "on":
+            enable_auto_reply(guild_id, target_channel.id)
+            await message.channel.send(f"✅ Auto-reply enabled for {target_channel.mention}! 🐝")
+        else:
+            disable_auto_reply(guild_id, target_channel.id)
+            await message.channel.send(f"❌ Auto-reply disabled for {target_channel.mention}.")
+        return
 
     if content.startswith("!set-announcement-channel") or content.startswith("!set-version-channel"):
         if not message.author.guild_permissions.manage_channels:
@@ -175,6 +188,7 @@ async def on_message(message):
             "`!set-announcement-channel #channel` : Set announcement channel\n"
             "`!set-version-channel #channel` : Set version update channel\n"
             "`!bee-msg [message]` : DM yourself a message\n"
+            "`!bee-autoreply on|off #channel` : Enable or disable auto-replies in any channel\n"
             "`!invite` : Invite BeeBot\n"
             "`!bee-version` : Show BeeBot version and features"
         )
@@ -213,15 +227,19 @@ async def on_message(message):
         user_input = "Give me a validating compliment with bee puns and emojis."
     elif content.startswith("!ask"):
         user_input = content[len("!ask"):].strip()
+    elif guild_id and is_auto_reply_enabled(guild_id, message.channel.id):
+        user_input = content
     elif isinstance(message.channel, discord.DMChannel):
         user_input = content
 
     if user_input:
         try:
             prompt_messages = build_prompt(user_input)
-            response = client.chat.completions.create(model="gpt-3.5-turbo",
-            messages=prompt_messages,
-            temperature=0.8)
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=prompt_messages,
+                temperature=0.8
+            )
             await message.channel.send(response.choices[0].message.content)
         except Exception as e:
             print(f"OpenAI error: {e}")
