@@ -1,12 +1,23 @@
-import discord
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 import os
+from openai import OpenAI
 from dotenv import load_dotenv
+import discord
 import random
 
 load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+response = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a bee fact!"}
+    ]
+)
+
+print(response.choices[0].message.content)
+
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
