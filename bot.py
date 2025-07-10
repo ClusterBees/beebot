@@ -204,8 +204,7 @@ async def set_version_channel(interaction: discord.Interaction):
 async def invite(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🐝 Invite me to your server:\n"
-        "https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934340028480&integration_type=0&scope=bot"
-    )
+        "https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934340028480&integration_type=0&scope=applications.commands+bot")
 
 @bot.tree.command(name="bee_autoreply", description="Toggle BeeBot autoreply in this channel.")
 async def bee_autoreply(interaction: discord.Interaction, mode: str):
