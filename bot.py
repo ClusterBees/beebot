@@ -70,6 +70,12 @@ def log_change(guild_id, change):
     with open(filename, "a", encoding="utf-8") as f:
         f.write(entry + "\n")
 
+    # Automatically send changelog to configured channel
+    import asyncio
+    guild = discord.utils.get(client.guilds, id=guild_id)
+    if guild:
+        asyncio.create_task(send_changelog_to_channel(guild))
+
 async def get_or_create_error_channel(guild):
     for channel in guild.text_channels:
         if channel.name == "beebot-errors":
@@ -79,6 +85,27 @@ async def get_or_create_error_channel(guild):
     except Exception as e:
         print(f"Failed to create error channel: {e}")
         return None
+
+async def send_changelog_to_channel(guild):
+    channel_id = changelog_channels.get(guild.id)
+    if not channel_id:
+        print(f"No changelog channel set for guild {guild.name}")
+        return
+
+    changelog_channel = guild.get_channel(channel_id)
+    if not changelog_channel:
+        print(f"Changelog channel not found in guild {guild.name}")
+        return
+
+    filename = f"changelog_{guild.id}.txt"
+    if not os.path.exists(filename):
+        await changelog_channel.send("📭 No changelog entries yet.")
+        return
+
+    with open(filename, "r", encoding="utf-8") as f:
+        lines = f.readlines()[-10:]
+
+    await changelog_channel.send("📘 **BeeBot Changelog:**\n" + "".join(f"• {line}" for line in lines))
 
 @client.event
 async def on_ready():
