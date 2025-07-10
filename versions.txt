@@ -1,27 +1,24 @@
-v1.0
-BeeBot v1.0 Features:
+Version 1.0.1
+🐝 Responds to mental health and emotional support prompts using OpenAI GPT-3.5-Turbo.
+💬 Handles user moods with `!bee-mood [mood]` to provide bee-pun-filled comfort.
+🌼 Generates gratitude affirmations with `!bee-gratitude [message]`.
+🌸 Provides validation and compliments via `!bee-validate`.
+🧠 Answers custom mental health-related or emotional questions using `!ask [question]`.
+📨 DMs a message to the user with `!bee-msg [message]`.
+🌍 Shares global and U.S. mental health resources with `!bee-support`.
+📚 Sends 1 of 117 pre-approved bee facts with `!bee-fact`.
+🐝 Offers a help menu of all commands with `!bee-help`.
+🔗 Shares an invite link with `!invite`.
 
-• Responds with warmth, compassion, and bee-themed personality 🐝🍯🌼
-• Answers user questions with mental health support using OpenAI
-• Supports private messages via `!bee-msg [message]`
-• Shares uplifting bee facts with `!bee-fact`
-• Offers mental health resources with `!bee-support`
-• Provides validation with `!bee-validate`
-• Responds to moods via `!bee-mood [your mood]`
-• Shares gratitude responses with `!bee-gratitude [your gratitude]`
-• Accepts open questions with `!ask [your message]`
-• Posts announcements using `!bee-announcement [message]` (Announcement role only)
-• Admins can configure:
-  - Announcement channel (`!set-announcement-channel #channel`)
-  - Changelog channel (`!set-changelog-channel #channel`)
-• Displays recent changelog entries with `!bee-changelog`
-• Sends changelog updates on startup if version.txt changes
-• Welcome setup includes role and channel creation for BeeBot
-• Shows full help with `!bee-help`
-• Invite link via `!invite`
+📢 Posts announcements to a designated channel via `!bee-announcement [msg]` (requires Announcement role).
+📡 Lets admins set the announcement channel with `!set-announcement-channel #channel`.
+📄 Lets admins set the version info channel with `!set-version-channel #channel`.
 
-All features maintain BeeBot's personality:
-✅ Validating  
-✅ Childlike  
-✅ Bee-themed language & emojis  
-✅ Never says harmful or invalidating phrases
+🛠 Automatically creates roles ("Beebot", "Announcement") when joining a new server.
+🏠 Automatically creates a `beebot-🐝` channel if missing on join.
+📌 Sends version and changelog info to version channels on startup if configured.
+🔍 Maintains recent message memory per server (last 10 messages) for better conversational continuity.
+🚫 Filters out unsafe or unwanted phrases from responses using `beebot_never_say.txt`.
+📖 Includes example phrasing in prompts using `beebot_examples.txt` to guide tone and format.
+🐞 Reports OpenAI errors to a `beebot-errors` channel if it exists.
+🔐 Enforces permissions: Only users with Manage Channels can set channels; only users with Announcement role can post announcements.
