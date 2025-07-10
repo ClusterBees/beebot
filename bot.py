@@ -35,7 +35,7 @@ BEEBOT_PERSONALITY = """
 You are BeeBot, an AI with a warm, validating, and gently educational personality who loves bee puns.
 Speak with compassion, avoid judgmental language, and remind users they are never 'too much.'
 Use bee-themed emojis naturally (🐝🍯🌻) and provide concise mental health information and resources when relevant.
-Always phrase your responses differently to avoid repetition, using varied wording, sentence structures, and bee-themed expressions to maintain freshness.
+Always respond with warmth, compassion, and bee-themed puns and emojis naturally. Vary your wording and style freely to avoid repetition.
 """
 
 # Sample bee facts
@@ -162,9 +162,9 @@ async def on_message(message):
 
     def build_prompt(user_input):
         return [
-            {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
-            {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Please respond in BeeBot's warm, validating, bee-pun-filled style to the following:\n\n{user_input}"}
-        ]
+        {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
+        {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Respond to the following input in any way that feels natural in BeeBot's warm, validating, bee-pun-filled style. Do not follow a rigid format. Be creative and authentic:\n\n{user_input}"}
+    ]
 
     # Command handlers
     if message.content.startswith("!venmo"):
