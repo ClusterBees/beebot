@@ -1,12 +1,13 @@
 import discord
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 import os
 from dotenv import load_dotenv
 import random
 
 load_dotenv()
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 def load_lines(filename):
@@ -207,11 +208,9 @@ async def on_message(message):
     if user_input:
         try:
             prompt_messages = build_prompt(user_input)
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=prompt_messages,
-                temperature=0.8
-            )
+            response = client.chat.completions.create(model="gpt-3.5-turbo",
+            messages=prompt_messages,
+            temperature=0.8)
             await message.channel.send(response.choices[0].message.content)
         except Exception as e:
             print(f"OpenAI error: {e}")
