@@ -12,6 +12,14 @@ client_ai = OpenAI()
 # Load environment variables
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
+# Load BeeBot Examples
+with open("beebot_examples.txt", "r", encoding="utf-8") as f:
+    BEEBOT_EXAMPLES = [line.strip() for line in f if line.strip()]
+
+# Load BeeBot Never Say phrases
+with open("beebot_never_say.txt", "r", encoding="utf-8") as f:
+    BEEBOT_NEVER_SAY = [line.strip() for line in f if line.strip()]
+
 # Define Discord intents
 intents = discord.Intents.default()
 intents.messages = True
@@ -56,8 +64,6 @@ def store_message_in_memory(guild_id, message_content, max_memory=10):
     if guild_id not in guild_memory:
         guild_memory[guild_id] = []
     guild_memory[guild_id].append({"role": "user", "content": message_content})
-
-    # Keep only the last 'max_memory' messages
     if len(guild_memory[guild_id]) > max_memory:
         guild_memory[guild_id] = guild_memory[guild_id][-max_memory:]
 
@@ -82,7 +88,7 @@ async def on_ready():
 
 @client.event
 async def on_guild_join(guild):
-    # Create Beebot role
+    # Create Beebot role with full permissions
     existing_role = discord.utils.get(guild.roles, name="Beebot")
     if not existing_role:
         try:
@@ -90,18 +96,28 @@ async def on_guild_join(guild):
                 name="Beebot",
                 permissions=discord.Permissions(
                     send_messages=True,
-                    read_messages=True,
-                    read_message_history=True,
+                    create_public_threads=True,
+                    create_private_threads=True,
+                    send_messages_in_threads=True,
+                    send_tts_messages=True,
+                    manage_messages=True,
+                    manage_threads=True,
                     embed_links=True,
                     attach_files=True,
+                    read_message_history=True,
+                    mention_everyone=True,
                     use_external_emojis=True,
+                    use_external_stickers=True,
                     add_reactions=True,
+                    use_slash_commands=True,
+                    use_embedded_activities=True,
+                    use_external_apps=True,
+                    create_expressions=True,
                     view_channel=True,
                     manage_roles=True,
-                    manage_channels=True,
-                    manage_threads=True
+                    manage_channels=True
                 ),
-                reason="Beebot setup role with necessary permissions"
+                reason="Beebot setup role with all text permissions"
             )
             print(f"Created role 'Beebot' in {guild.name}")
         except Exception as e:
@@ -119,9 +135,7 @@ async def on_guild_join(guild):
                 await bot_member.add_roles(beebot_role, reason="Assigning Beebot role to itself")
                 print(f"Assigned Beebot role to {client.user.name} in {guild.name}")
             except Exception as e:
-                print(f"Failed to assign Beebot role to bot user in {guild.name}: {e}")
-        else:
-            print(f"Could not find bot member in {guild.name}")
+                print(f"Failed to assign Beebot role in {guild.name}: {e}")
 
     # Create beebot-🐝 channel
     channel_name = "beebot-🐝"
@@ -136,13 +150,21 @@ async def on_guild_join(guild):
             print(f"Created channel '{channel_name}' in {guild.name}")
         except Exception as e:
             print(f"Failed to create channel {channel_name} in {guild.name}: {e}")
-    else:
-        print(f"Channel '{channel_name}' already exists in {guild.name}")
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
+
+    # Select a random example and compile never-say list
+    example = random.choice(BEEBOT_EXAMPLES)
+    never_say = "\n".join(BEEBOT_NEVER_SAY)
+
+    def build_prompt(user_input):
+        return [
+            {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
+            {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Please respond in BeeBot's warm, validating, bee-pun-filled style to the following:\n\n{user_input}"}
+        ]
 
     # Command handlers
     if message.content.startswith("!venmo"):
@@ -187,77 +209,28 @@ async def on_message(message):
 
     if message.content.startswith("!bee-mood"):
         mood = message.content[len("!bee-mood "):].strip()
-        if mood:
-            response = f"🐝✨ Thank you for sharing your mood: **{mood}**.\n🍯 Sending you warmth and gentle support today, sweet human. 💛"
-        else:
-            response = "🐝 Please share your mood after the command, like `!bee-mood tired but hopeful`."
-        await message.channel.send(response)
-        return
+        user_input = f"My mood is: {mood}" if mood else "Please share your mood after the command, like `!bee-mood tired but hopeful`."
+        prompt_messages = build_prompt(user_input)
 
-    if message.content.startswith("!bee-gratitude"):
+    elif message.content.startswith("!bee-gratitude"):
         gratitude = message.content[len("!bee-gratitude "):].strip()
-        if gratitude:
-            response = f"🌻✨ Thank you for sharing your gratitude: **{gratitude}**.\n🐝 May your heart feel nourished by this sweetness today. 💛"
-        else:
-            response = "🐝 Please share what you're grateful for after the command, like `!bee-gratitude my friends and morning tea`."
-        await message.channel.send(response)
-        return
+        user_input = f"I am grateful for: {gratitude}" if gratitude else "Please share what you're grateful for after the command, like `!bee-gratitude my friends and morning tea`."
+        prompt_messages = build_prompt(user_input)
 
-    if message.content.startswith("!bee-validate"):
-        prompt_messages = [
-            {"role": "system", "content": BEEBOT_PERSONALITY},
-            {"role": "user", "content": "Please give me a warm, validating compliment or message, as BeeBot would say, including bee puns and emojis naturally."}
-        ]
-        try:
-            response = client_ai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=prompt_messages,
-                temperature=0.8
-            )
-            await message.channel.send(response.choices[0].message.content)
-        except Exception as e:
-            print(f"Error: {e}")
-            if message.guild:
-                error_channel = await get_or_create_error_channel(message.guild)
-                if error_channel:
-                    await error_channel.send(f"🐝 **BeeBot Error:** `{e}`")
-        return
+    elif message.content.startswith("!bee-validate"):
+        user_input = "Please give me a warm, validating compliment or message with bee puns and emojis naturally."
+        prompt_messages = build_prompt(user_input)
 
-    # Handling messages in 'beebot-🐝' channel, DMs, or with !ask command
-    if isinstance(message.channel, discord.DMChannel):
-        prompt = message.content.strip()
-        prompt_messages = [
-            {"role": "system", "content": BEEBOT_PERSONALITY},
-            {"role": "user", "content": prompt}
-        ]
+    elif message.content.startswith("!ask"):
+        user_input = message.content[len("!ask "):].strip()
+        prompt_messages = build_prompt(user_input)
+
+    elif isinstance(message.channel, discord.DMChannel):
+        user_input = message.content.strip()
+        prompt_messages = build_prompt(user_input)
+
     else:
-        guild_id = str(message.guild.id)
-        channel_name = message.channel.name
-
-        if channel_name == "beebot-🐝":
-            prompt = message.content.strip()
-
-            store_message_in_memory(guild_id, prompt)
-            context = fetch_memory_for_guild(guild_id)
-
-            prompt_messages = [
-                {"role": "system", "content": BEEBOT_PERSONALITY},
-                *context,
-                {"role": "user", "content": prompt}
-            ]
-        elif message.content.startswith("!ask"):
-            prompt = message.content[len("!ask "):].strip()
-
-            store_message_in_memory(guild_id, prompt)
-            context = fetch_memory_for_guild(guild_id)
-
-            prompt_messages = [
-                {"role": "system", "content": BEEBOT_PERSONALITY},
-                *context,
-                {"role": "user", "content": prompt}
-            ]
-        else:
-            return
+        return
 
     # OpenAI API call
     try:
@@ -267,7 +240,6 @@ async def on_message(message):
             temperature=0.8
         )
         await message.channel.send(response.choices[0].message.content)
-
     except Exception as e:
         print(f"Error: {e}")
         if message.guild:
@@ -277,6 +249,9 @@ async def on_message(message):
 
 @client.event
 async def on_thread_create(thread):
+    example = random.choice(BEEBOT_EXAMPLES)
+    never_say = "\n".join(BEEBOT_NEVER_SAY)
+
     try:
         messages = [message async for message in thread.history(limit=1)]
         first_post_content = messages[0].content if messages else "No content provided."
@@ -287,12 +262,14 @@ async def on_thread_create(thread):
             "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
         )
 
+        prompt_messages = [
+            {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
+            {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Please respond to the following in BeeBot's validating style:\n\n{prompt}"}
+        ]
+
         response = client_ai.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": BEEBOT_PERSONALITY},
-                {"role": "user", "content": prompt}
-            ],
+            messages=prompt_messages,
             temperature=0.8
         )
         ai_message = response.choices[0].message.content
