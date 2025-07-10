@@ -187,6 +187,7 @@ async def on_message(message):
             "`!bee-mood [your mood]` : Share your current mood and receive support.\n"
             "`!bee-gratitude [something you're grateful for]` – Share gratitude and positivity with the hive.\n"
             "`!bee-validate` : Receive a gentle compliment or validation message. 💛\n"
+            "`!bee-announcement [message]` : Post an announcement to #announcements (Announcement role only). 🗞️\n"
         )
         await message.channel.send(help_message)
         return
@@ -205,6 +206,29 @@ async def on_message(message):
             "🐝 Remember, reaching out for help is a brave and strong choice. You are never too much. 💛"
         )
         await message.channel.send(support_message)
+        return
+
+    if message.content.startswith("!bee-announcement"):
+        if not any(role.name.lower() == "announcement" for role in message.author.roles):
+            await message.channel.send("🚫 You need the **Announcement** role to use this command.")
+            return
+
+        announcement_text = message.content[len("!bee-announcement"):].strip()
+        if not announcement_text:
+            await message.channel.send("🐝 Please include the message after the command, like `!bee-announcement Buzzing with good news!`")
+            return
+
+        announcement_channel = discord.utils.get(message.guild.text_channels, name="announcements")
+        if not announcement_channel:
+            await message.channel.send("⚠️ I couldn't find a channel named `#announcements`. Please create one or rename it.")
+            return
+
+        try:
+            await announcement_channel.send(f"📢 **Announcement from BeeBot:**\n{announcement_text}")
+            await message.channel.send("✅ Your announcement has been buzzed into `#announcements`! 🐝")
+        except Exception as e:
+            print(f"Error sending announcement: {e}")
+            await message.channel.send("⚠️ Something went wrong while sending the announcement.")
         return
 
     if message.content.startswith("!bee-mood"):
