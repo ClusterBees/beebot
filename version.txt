@@ -1,15 +1,9 @@
-Version 1.0.2
-✨ Major refactor and stability improvements.
+Version 2.0.0
+✨ Migrated to Discord Slash Commands and Persistent Server Settings
 
-🔧 Refactored bot architecture for improved maintainability and modularity.
-🐝 Reorganized event handling for on_ready, on_guild_join, and on_message to better support future feature expansions.
-💾 Added persistent per-guild memory for recent messages (guild_memory) to improve contextual responses.
-📣 Introduced announcement channel system using !bee-announcement and !set-announcement-channel.
-📢 Added version broadcasting support to specific channels using !set-version-channel.
-📬 Added ability to DM users using !bee-msg [message].
-🌐 Improved support for direct messages and non-guild interactions.
-📑 Uses beebot_examples.txt and beebot_never_say.txt to guide response tone and safety.
-🐞 Error handling added for OpenAI API issues, with optional reporting to #beebot-errors channel.
-📌 Version info now read from version.txt and posted to configured channels at startup.
-🛡 Enforced role-based permissions for sensitive commands.
-🧠 Personality prompt and system prompt enhanced with childlike warmth and bee puns.
+🔁 All !commands replaced with modern slash commands using discord.py's command tree.
+💾 Server settings (auto-reply, announcement channels, version channels) now persist across restarts via guild_settings.json.
+🌐 Auto-syncs slash commands across guilds at startup.
+🐝 Preserved all BeeBot features including mood support, gratitude, validation, and bee facts.
+📬 Improved DM support and feedback.
+🧠 OpenAI responses retain BeeBot’s warm, validating, and bee-punny tone.
