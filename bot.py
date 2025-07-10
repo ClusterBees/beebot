@@ -3,7 +3,6 @@ import openai
 import os
 from dotenv import load_dotenv
 import random
-from datetime import datetime
 
 load_dotenv()
 
@@ -35,6 +34,7 @@ Always respond with warmth, compassion, and bee-themed puns and emojis naturally
 
 guild_memory = {}
 announcement_channels = {}
+version_channels = {}
 
 def store_message_in_memory(guild_id, message, max_memory=10):
     guild_memory.setdefault(guild_id, []).append({"role": "user", "content": message})
@@ -53,6 +53,18 @@ def read_version_info(file_path="version.txt"):
 @client.event
 async def on_ready():
     print(f'{client.user} has connected to Discord! 🐝✨')
+    version, description = read_version_info()
+    if version:
+        version_message = f"🐝 **BeeBot {version}**\n{description}"
+        for guild in client.guilds:
+            channel_id = version_channels.get(guild.id)
+            if channel_id:
+                channel = guild.get_channel(channel_id)
+                if channel:
+                    try:
+                        await channel.send(version_message)
+                    except Exception as e:
+                        print(f"Failed to send version message in {guild.name}: {e}")
 
 @client.event
 async def on_guild_join(guild):
@@ -75,6 +87,7 @@ async def on_message(message):
         return
 
     guild_id = message.guild.id if message.guild else None
+    content = message.content.strip()
     example = random.choice(BEEBOT_EXAMPLES) if BEEBOT_EXAMPLES else ""
     never_say = "\n".join(BEEBOT_NEVER_SAY)
 
@@ -84,9 +97,7 @@ async def on_message(message):
             {"role": "user", "content": f"Example: '{example}'. Respond to:\n\n{user_input}"}
         ]
 
-    content = message.content.strip()
-
-    if content.startswith("!set-announcement-channel"):
+    if content.startswith("!set-announcement-channel") or content.startswith("!set-version-channel"):
         if not message.author.guild_permissions.manage_channels:
             await message.channel.send("🚫 You need `Manage Channels` permission.")
             return
@@ -94,8 +105,12 @@ async def on_message(message):
             await message.channel.send("❗ Please tag a text channel.")
             return
         tagged_channel = message.channel_mentions[0]
-        announcement_channels[guild_id] = tagged_channel.id
-        await message.channel.send(f"✅ Announcement channel set to {tagged_channel.mention}! 🐝")
+        if "version" in content:
+            version_channels[guild_id] = tagged_channel.id
+            await message.channel.send(f"✅ Version updates will be posted to {tagged_channel.mention}! 🐝")
+        else:
+            announcement_channels[guild_id] = tagged_channel.id
+            await message.channel.send(f"✅ Announcements will be sent to {tagged_channel.mention}! 🐝")
         return
 
     if content.startswith("!bee-announcement"):
@@ -146,6 +161,7 @@ async def on_message(message):
             "`!bee-validate` : Get a compliment\n"
             "`!bee-announcement [msg]` : Post to announcement channel\n"
             "`!set-announcement-channel #channel` : Set announcement channel\n"
+            "`!set-version-channel #channel` : Set version update channel\n"
             "`!bee-msg [message]` : DM yourself a message\n"
             "`!invite` : Invite BeeBot\n"
             "`!bee-version` : Show BeeBot version and features"
