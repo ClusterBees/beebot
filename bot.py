@@ -111,6 +111,11 @@ async def send_changelog_to_channel(guild):
 async def on_ready():
     print(f'{client.user} has connected to Discord! 🐝✨')
 
+    # Log and send changelog entry on restart
+    for guild in client.guilds:
+        if guild.id in changelog_channels:
+            log_change(guild.id, "BeeBot code updated and restarted.")
+
 @client.event
 async def on_guild_join(guild):
     beebot_role = discord.utils.get(guild.roles, name="Beebot")
