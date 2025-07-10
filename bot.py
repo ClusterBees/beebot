@@ -7,11 +7,9 @@ from datetime import datetime
 
 load_dotenv()
 
-# OpenAI and Discord credentials
 openai.api_key = os.getenv("OPENAI_API_KEY")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Load files
 def load_lines(filename):
     if not os.path.exists(filename):
         return []
@@ -22,14 +20,12 @@ BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
 BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 
-# Discord intents and client
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.dm_messages = True
 client = discord.Client(intents=intents)
 
-# BeeBot personality
 BEEBOT_PERSONALITY = """
 You are BeeBot, an AI with a warm, validating, and gently educational personality who loves bee puns. You are childlike and are desperate to help.
 Speak with compassion, avoid judgmental language, and remind users they are never 'too much.'
@@ -37,11 +33,8 @@ Use bee-themed emojis naturally (🐝🍯🌻🐛🌸🌷🌼🌺🌹🏵️🪻
 Always respond with warmth, compassion, and bee-themed puns and emojis naturally. Vary your wording and style freely to avoid repetition.
 """
 
-# In-memory context
 guild_memory = {}
 announcement_channels = {}
-changelog_channels = {}
-guild_changelogs = {}
 
 def store_message_in_memory(guild_id, message, max_memory=10):
     guild_memory.setdefault(guild_id, []).append({"role": "user", "content": message})
@@ -49,29 +42,6 @@ def store_message_in_memory(guild_id, message, max_memory=10):
 
 def fetch_memory_for_guild(guild_id):
     return guild_memory.get(guild_id, [])
-
-def log_change(guild_id, change):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    entry = f"[{timestamp}] {change}"
-    guild_changelogs.setdefault(guild_id, []).append(entry)
-    filename = f"changelog_{guild_id}.txt"
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write(entry + "\n")
-
-async def send_changelog_to_channel(guild):
-    channel_id = changelog_channels.get(guild.id)
-    if not channel_id:
-        return
-    changelog_channel = guild.get_channel(channel_id)
-    if not changelog_channel:
-        return
-    filename = f"changelog_{guild.id}.txt"
-    if not os.path.exists(filename):
-        await changelog_channel.send("📭 No changelog entries yet.")
-        return
-    with open(filename, "r", encoding="utf-8") as f:
-        lines = f.readlines()[-10:]
-    await changelog_channel.send("📘 **BeeBot Changelog:**\n" + "".join(f"• {line}" for line in lines))
 
 def read_version_info(file_path="version.txt"):
     if not os.path.exists(file_path):
@@ -83,13 +53,6 @@ def read_version_info(file_path="version.txt"):
 @client.event
 async def on_ready():
     print(f'{client.user} has connected to Discord! 🐝✨')
-    version, changelog = read_version_info()
-    if version:
-        msg = f"BeeBot updated to {version}: {changelog}" if changelog else f"BeeBot updated to {version}."
-        for guild in client.guilds:
-            if guild.id in changelog_channels:
-                log_change(guild.id, msg)
-                await send_changelog_to_channel(guild)
 
 @client.event
 async def on_guild_join(guild):
@@ -123,14 +86,7 @@ async def on_message(message):
 
     content = message.content.strip()
 
-    if content.startswith("!send-changelog"):
-        if message.author.guild_permissions.manage_guild:
-            await send_changelog_to_channel(message.guild)
-        else:
-            await message.channel.send("🚫 You need `Manage Server` permission to send the changelog.")
-        return
-
-    if content.startswith("!set-announcement-channel") or content.startswith("!set-changelog-channel"):
+    if content.startswith("!set-announcement-channel"):
         if not message.author.guild_permissions.manage_channels:
             await message.channel.send("🚫 You need `Manage Channels` permission.")
             return
@@ -138,23 +94,8 @@ async def on_message(message):
             await message.channel.send("❗ Please tag a text channel.")
             return
         tagged_channel = message.channel_mentions[0]
-        setting = "announcement" if "announcement" in content else "changelog"
-        if setting == "announcement":
-            announcement_channels[guild_id] = tagged_channel.id
-        else:
-            changelog_channels[guild_id] = tagged_channel.id
-        log_change(guild_id, f"{setting.capitalize()} channel set to {tagged_channel.name}.")
-        await message.channel.send(f"✅ {setting.capitalize()} channel set to {tagged_channel.mention}!")
-        return
-
-    if content.startswith("!bee-changelog"):
-        filename = f"changelog_{guild_id}.txt"
-        if not os.path.exists(filename):
-            await message.channel.send("📭 No changelog entries yet.")
-        else:
-            with open(filename, "r", encoding="utf-8") as f:
-                lines = f.readlines()[-10:]
-            await message.channel.send("📘 **BeeBot Changelog:**\n" + "".join(f"• {line}" for line in lines))
+        announcement_channels[guild_id] = tagged_channel.id
+        await message.channel.send(f"✅ Announcement channel set to {tagged_channel.mention}! 🐝")
         return
 
     if content.startswith("!bee-announcement"):
@@ -172,7 +113,6 @@ async def on_message(message):
             return
         await channel.send(f"📢 **Announcement from BeeBot:**\n{announcement_text}")
         await message.channel.send("✅ Your announcement has been buzzed! 🐝")
-        log_change(guild_id, f"Announcement made by {message.author.display_name}.")
         return
 
     if content.startswith("!bee-msg"):
@@ -206,10 +146,9 @@ async def on_message(message):
             "`!bee-validate` : Get a compliment\n"
             "`!bee-announcement [msg]` : Post to announcement channel\n"
             "`!set-announcement-channel #channel` : Set announcement channel\n"
-            "`!set-changelog-channel #channel` : Set changelog channel\n"
-            "`!bee-changelog` : Show changelog\n"
+            "`!bee-msg [message]` : DM yourself a message\n"
             "`!invite` : Invite BeeBot\n"
-            "`!bee-msg [message]` : DM yourself a message"
+            "`!bee-version` : Show BeeBot version and features"
         )
         return
 
@@ -225,6 +164,14 @@ async def on_message(message):
             "• [International Support](https://findahelpline.com)\n\n"
             "🐝 Reaching out is brave. 💛"
         )
+        return
+
+    if content.startswith("!bee-version"):
+        version, description = read_version_info()
+        if version:
+            await message.channel.send(f"🐝 **BeeBot {version}**\n{description}")
+        else:
+            await message.channel.send("⚠️ Version info not found.")
         return
 
     user_input = None
