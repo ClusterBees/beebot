@@ -1,13 +1,13 @@
 import discord
-from openai import OpenAI
+import openai
 import os
 from dotenv import load_dotenv
 import random
 
 load_dotenv()
 
-# Initialize OpenAI client
-client_ai = OpenAI()
+# Set OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Load environment variables
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -26,7 +26,6 @@ with open("bee_facts.txt", "r", encoding="utf-8") as f:
 
 # Define Discord intents
 intents = discord.Intents.default()
-intents.messages = True
 intents.message_content = True
 intents.guilds = True
 intents.dm_messages = True
@@ -69,8 +68,7 @@ def log_change(guild_id, change):
 
     filename = f"changelog_{guild_id}.txt"
     with open(filename, "a", encoding="utf-8") as f:
-        f.write(entry + "
-")
+        f.write(entry + "\n")
 
 async def get_or_create_error_channel(guild):
     for channel in guild.text_channels:
@@ -164,8 +162,7 @@ async def on_message(message):
         else:
             with open(filename, "r", encoding="utf-8") as f:
                 lines = f.readlines()[-10:]
-            await message.channel.send("📘 **BeeBot Changelog:**
-" + "".join(f"• {line}" for line in lines))
+            await message.channel.send("📘 **BeeBot Changelog:**\n" + "".join(f"• {line}" for line in lines))
         return
 
     if message.content.startswith("!bee-announcement"):
@@ -266,7 +263,7 @@ async def on_message(message):
         return
 
     try:
-        response = client_ai.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=prompt_messages,
             temperature=0.8
