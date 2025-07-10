@@ -156,6 +156,13 @@ async def on_message(message):
             {"role": "user", "content": f"Example: '{example}'. Respond to:\n\n{user_input}"}
         ]
 
+    if message.content.startswith("!send-changelog"):
+        if not message.author.guild_permissions.manage_guild:
+            await message.channel.send("🚫 You need `Manage Server` permission to send the changelog.")
+            return
+        await send_changelog_to_channel(message.guild)
+        return
+
     if message.content.startswith("!set-announcement-channel"):
         if not message.author.guild_permissions.manage_channels:
             await message.channel.send("🚫 You need `Manage Channels` permission to set the announcement channel.")
