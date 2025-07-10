@@ -20,6 +20,10 @@ with open("beebot_examples.txt", "r", encoding="utf-8") as f:
 with open("beebot_never_say.txt", "r", encoding="utf-8") as f:
     BEEBOT_NEVER_SAY = [line.strip() for line in f if line.strip()]
 
+# Load Bee Facts from external file
+with open("bee_facts.txt", "r", encoding="utf-8") as f:
+    BEE_FACTS = [line.strip() for line in f if line.strip()]
+
 # Define Discord intents
 intents = discord.Intents.default()
 intents.messages = True
@@ -38,28 +42,11 @@ Use bee-themed emojis naturally (🐝🍯🌻) and provide concise mental health
 Always respond with warmth, compassion, and bee-themed puns and emojis naturally. Vary your wording and style freely to avoid repetition.
 """
 
-# Sample bee facts
-BEE_FACTS = [
-    "🐝 Did you know? Bees communicate through dances to share where flowers are found!",
-    "🍯 Bees have five eyes, two large ones and three tiny ones on top of their heads!",
-    "🌻 Honey never spoils. Archaeologists found honey in ancient Egyptian tombs that is still edible today!",
-    "🐝 A single bee can visit 5,000 flowers in a day while collecting nectar.",
-    "🍯 Bees are essential pollinators, supporting over a third of the food we eat!",
-    "🌸 The queen bee can lay up to 2,000 eggs in a single day to grow the hive.",
-    "🐝 Male bees are called drones, and their only job is to mate with a queen.",
-    "🍯 Bees beat their wings about 200 times per second, creating their signature buzzing sound!",
-    "🌻 A bee produces only about 1/12th of a teaspoon of honey in its entire lifetime.",
-    "🐝 Bees can recognize human faces, remembering them like we remember each other’s faces.",
-    "🍯 The hexagon shape of honeycombs is the strongest and most efficient shape in nature.",
-    "🌸 Bees have been around for about 100 million years, evolving alongside flowering plants.",
-    "🐝 When bees find a good food source, they perform a ‘waggle dance’ to show its distance and direction.",
-    "🍯 Honey has natural antibacterial properties and was used to treat wounds in ancient times.",
-    "🌻 Worker bees are all female, doing every job in the hive except mating and laying fertilized eggs."
-]
-
 # In-memory guild context and announcement config
 guild_memory = {}
 announcement_channels = {}
+changelog_channels = {}
+guild_changelogs = {}
 
 def store_message_in_memory(guild_id, message_content, max_memory=10):
     if guild_id not in guild_memory:
@@ -70,6 +57,20 @@ def store_message_in_memory(guild_id, message_content, max_memory=10):
 
 def fetch_memory_for_guild(guild_id):
     return guild_memory.get(guild_id, [])
+
+def log_change(guild_id, change):
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] {change}"
+
+    if guild_id not in guild_changelogs:
+        guild_changelogs[guild_id] = []
+    guild_changelogs[guild_id].append(entry)
+
+    filename = f"changelog_{guild_id}.txt"
+    with open(filename, "a", encoding="utf-8") as f:
+        f.write(entry + "
+")
 
 async def get_or_create_error_channel(guild):
     for channel in guild.text_channels:
@@ -139,7 +140,32 @@ async def on_message(message):
             return
         tagged_channel = message.channel_mentions[0]
         announcement_channels[message.guild.id] = tagged_channel.id
+        log_change(message.guild.id, f"Announcement channel set to {tagged_channel.name}.")
         await message.channel.send(f"✅ Announcements will now be sent to {tagged_channel.mention}! 🐝")
+        return
+
+    if message.content.startswith("!set-changelog-channel"):
+        if not message.author.guild_permissions.manage_channels:
+            await message.channel.send("🚫 You need `Manage Channels` permission to set the changelog channel.")
+            return
+        if not message.channel_mentions:
+            await message.channel.send("❗ Please tag a text channel, like `!set-changelog-channel #bee-changes`.")
+            return
+        tagged_channel = message.channel_mentions[0]
+        changelog_channels[message.guild.id] = tagged_channel.id
+        log_change(message.guild.id, f"Changelog channel set to {tagged_channel.name}.")
+        await message.channel.send(f"✅ Changelog updates will now be sent to {tagged_channel.mention}! 🐝")
+        return
+
+    if message.content.startswith("!bee-changelog"):
+        filename = f"changelog_{message.guild.id}.txt"
+        if not os.path.exists(filename):
+            await message.channel.send("📭 No changelog entries yet.")
+        else:
+            with open(filename, "r", encoding="utf-8") as f:
+                lines = f.readlines()[-10:]
+            await message.channel.send("📘 **BeeBot Changelog:**
+" + "".join(f"• {line}" for line in lines))
         return
 
     if message.content.startswith("!bee-announcement"):
@@ -158,6 +184,7 @@ async def on_message(message):
         try:
             await announcement_channel.send(f"📢 **Announcement from BeeBot:**\n{announcement_text}")
             await message.channel.send("✅ Your announcement has been buzzed! 🐝")
+            log_change(message.guild.id, f"Announcement made by {message.author.display_name}.")
         except Exception as e:
             await message.channel.send("⚠️ Failed to send announcement.")
         return
@@ -192,6 +219,8 @@ async def on_message(message):
             "`!bee-validate` : Get a compliment.\n"
             "`!bee-announcement [msg]` : Post to announcement channel (Announcement role only).\n"
             "`!set-announcement-channel #channel` : Set BeeBot's announcement channel (admin only).\n"
+            "`!set-changelog-channel #channel` : Set BeeBot's changelog channel (admin only).\n"
+            "`!bee-changelog` : Show the changelog.\n"
             "`!invite` : Invite BeeBot to your server.\n"
             "`!bee-msg [message]` : BeeBot sends you a private message."
         )
@@ -211,7 +240,6 @@ async def on_message(message):
         )
         return
 
-    # OpenAI command inputs
     if message.content.startswith("!bee-mood"):
         mood = message.content[len("!bee-mood "):].strip()
         user_input = f"My mood is: {mood}" if mood else "Please share your mood."
