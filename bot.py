@@ -57,8 +57,9 @@ BEE_FACTS = [
     "🌻 Worker bees are all female, doing every job in the hive except mating and laying fertilized eggs."
 ]
 
-# In-memory guild context store
+# In-memory guild context and announcement config
 guild_memory = {}
+announcement_channels = {}
 
 def store_message_in_memory(guild_id, message_content, max_memory=10):
     if guild_id not in guild_memory:
@@ -70,14 +71,12 @@ def store_message_in_memory(guild_id, message_content, max_memory=10):
 def fetch_memory_for_guild(guild_id):
     return guild_memory.get(guild_id, [])
 
-# Utility function to get or create error log channel
 async def get_or_create_error_channel(guild):
-    channel_name = "beebot-errors"
     for channel in guild.text_channels:
-        if channel.name == channel_name:
+        if channel.name == "beebot-errors":
             return channel
     try:
-        return await guild.create_text_channel(channel_name)
+        return await guild.create_text_channel("beebot-errors")
     except Exception as e:
         print(f"Failed to create error channel: {e}")
         return None
@@ -88,161 +87,143 @@ async def on_ready():
 
 @client.event
 async def on_guild_join(guild):
-    # Create Beebot role with full permissions
-    existing_role = discord.utils.get(guild.roles, name="Beebot")
-    if not existing_role:
+    beebot_role = discord.utils.get(guild.roles, name="Beebot")
+    if not beebot_role:
         try:
-            beebot_role = await guild.create_role(
-                name="Beebot",
-                permissions=discord.Permissions(
-                    send_messages=True,
-                    create_public_threads=True,
-                    create_private_threads=True,
-                    send_messages_in_threads=True,
-                    send_tts_messages=True,
-                    manage_messages=True,
-                    manage_threads=True,
-                    embed_links=True,
-                    attach_files=True,
-                    read_message_history=True,
-                    mention_everyone=True,
-                    use_external_emojis=True,
-                    use_external_stickers=True,
-                    add_reactions=True,
-                    use_slash_commands=True,
-                    use_embedded_activities=True,
-                    use_external_apps=True,
-                    create_expressions=True,
-                    view_channel=True,
-                    manage_roles=True,
-                    manage_channels=True
-                ),
-                reason="Beebot setup role with all text permissions"
-            )
-            print(f"Created role 'Beebot' in {guild.name}")
+            beebot_role = await guild.create_role(name="Beebot", reason="Setup Beebot role")
         except Exception as e:
-            print(f"Failed to create Beebot role in {guild.name}: {e}")
+            print(f"Failed to create Beebot role: {e}")
             beebot_role = None
-    else:
-        beebot_role = existing_role
-        print(f"Beebot role already exists in {guild.name}")
 
-    # Assign role to BeeBot user
     if beebot_role:
         bot_member = guild.get_member(client.user.id)
         if bot_member:
             try:
-                await bot_member.add_roles(beebot_role, reason="Assigning Beebot role to itself")
-                print(f"Assigned Beebot role to {client.user.name} in {guild.name}")
+                await bot_member.add_roles(beebot_role, reason="Assigning Beebot role")
             except Exception as e:
-                print(f"Failed to assign Beebot role in {guild.name}: {e}")
+                print(f"Failed to assign role: {e}")
 
-    # Create beebot-🐝 channel
-    channel_name = "beebot-🐝"
-    existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
-    if not existing_channel:
+    announcement_role = discord.utils.get(guild.roles, name="Announcement")
+    if not announcement_role:
         try:
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                guild.me: discord.PermissionOverwrite(read_messages=True)
-            }
-            await guild.create_text_channel(channel_name, overwrites=overwrites, reason="Beebot main channel")
-            print(f"Created channel '{channel_name}' in {guild.name}")
+            await guild.create_role(name="Announcement", reason="For !bee-announcement")
         except Exception as e:
-            print(f"Failed to create channel {channel_name} in {guild.name}: {e}")
+            print(f"Failed to create Announcement role: {e}")
+
+    if not discord.utils.get(guild.text_channels, name="beebot-🐝"):
+        try:
+            await guild.create_text_channel("beebot-🐝")
+        except Exception as e:
+            print(f"Failed to create beebot channel: {e}")
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    # Select a random example and compile never-say list
     example = random.choice(BEEBOT_EXAMPLES)
     never_say = "\n".join(BEEBOT_NEVER_SAY)
 
     def build_prompt(user_input):
         return [
-        {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
-        {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Respond to the following input in any way that feels natural in BeeBot's warm, validating, bee-pun-filled style. Do not follow a rigid format. Be creative and authentic:\n\n{user_input}"}
-    ]
+            {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say:\n{never_say}"},
+            {"role": "user", "content": f"Example: '{example}'. Respond to:\n\n{user_input}"}
+        ]
 
-    # Command handlers
-    if message.content.startswith("!venmo"):
-        venmo_message = (
-            "🐝✨ Here is my Venmo info, sweet human:\n\n"
-            "**@TrinketGoblinTV**\n"
-            "🍯 Thank you for your support and kindness that keeps me running. Remember, you are never too much. 💛"
-        )
-        await message.channel.send(venmo_message)
-        return
-
-    if message.content.startswith("!bee-help"):
-        help_message = (
-            "🐝✨ **BeeBot Commands:**\n\n"
-            "`!ask [question]` : Ask BeeBot anything for mental health support or validation.\n"
-            "`!venmo` : Get BeeBot's Venmo info to support development.\n"
-            "`!bee-help` : Show this list of commands.\n"
-            "`!bee-fact` : Hear a fun fact about bees 🐝.\n"
-            "`!bee-support` : Receive mental health resources 🌻.\n"
-            "`!bee-mood [your mood]` : Share your current mood and receive support.\n"
-            "`!bee-gratitude [something you're grateful for]` – Share gratitude and positivity with the hive.\n"
-            "`!bee-validate` : Receive a gentle compliment or validation message. 💛\n"
-            "`!bee-announcement [message]` : Post an announcement to #announcements (Announcement role only). 🗞️\n"
-        )
-        await message.channel.send(help_message)
-        return
-
-    if message.content.startswith("!bee-fact"):
-        fact = random.choice(BEE_FACTS)
-        await message.channel.send(fact)
-        return
-
-    if message.content.startswith("!bee-support"):
-        support_message = (
-            "🌻 **Here are some mental health support resources:**\n\n"
-            "• [988 Suicide & Crisis Lifeline (US)](https://988lifeline.org) – call or text 988 anytime\n"
-            "• [Trans Lifeline](https://translifeline.org) – 877-565-8860 (US)\n"
-            "• [International hotlines](https://findahelpline.com)\n\n"
-            "🐝 Remember, reaching out for help is a brave and strong choice. You are never too much. 💛"
-        )
-        await message.channel.send(support_message)
+    if message.content.startswith("!set-announcement-channel"):
+        if not message.author.guild_permissions.manage_channels:
+            await message.channel.send("🚫 You need `Manage Channels` permission to set the announcement channel.")
+            return
+        if not message.channel_mentions:
+            await message.channel.send("❗ Please tag a text channel, like `!set-announcement-channel #bee-news`.")
+            return
+        tagged_channel = message.channel_mentions[0]
+        announcement_channels[message.guild.id] = tagged_channel.id
+        await message.channel.send(f"✅ Announcements will now be sent to {tagged_channel.mention}! 🐝")
         return
 
     if message.content.startswith("!bee-announcement"):
         if not any(role.name.lower() == "announcement" for role in message.author.roles):
             await message.channel.send("🚫 You need the **Announcement** role to use this command.")
             return
-
         announcement_text = message.content[len("!bee-announcement"):].strip()
         if not announcement_text:
-            await message.channel.send("🐝 Please include the message after the command, like `!bee-announcement Buzzing with good news!`")
+            await message.channel.send("🐝 Please include the message after the command.")
             return
-
-        announcement_channel = discord.utils.get(message.guild.text_channels, name="announcements")
+        channel_id = announcement_channels.get(message.guild.id)
+        announcement_channel = message.guild.get_channel(channel_id) if channel_id else None
         if not announcement_channel:
-            await message.channel.send("⚠️ I couldn't find a channel named `#announcements`. Please create one or rename it.")
+            await message.channel.send("⚠️ No announcement channel set. Use `!set-announcement-channel #channel-name`.")
             return
-
         try:
             await announcement_channel.send(f"📢 **Announcement from BeeBot:**\n{announcement_text}")
-            await message.channel.send("✅ Your announcement has been buzzed into `#announcements`! 🐝")
+            await message.channel.send("✅ Your announcement has been buzzed! 🐝")
         except Exception as e:
-            print(f"Error sending announcement: {e}")
-            await message.channel.send("⚠️ Something went wrong while sending the announcement.")
+            await message.channel.send("⚠️ Failed to send announcement.")
         return
 
+    if message.content.startswith("!bee-msg"):
+        msg = message.content[len("!bee-msg"):].strip()
+        if not msg:
+            await message.channel.send("🐝 Please include a message after the command, like `!bee-msg you're amazing!`.")
+            return
+        try:
+            await message.author.send(msg)
+            await message.channel.send("✅ I've sent you a DM! Check your hive inbox. 🍯")
+        except discord.Forbidden:
+            await message.channel.send("🚫 I can't DM you. Please check your privacy settings.")
+        return
+
+    if message.content.startswith("!invite"):
+        invite_link = "https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934340028480&integration_type=0&scope=bot"
+        await message.channel.send(f"🐝 Buzzing with excitement! You can invite me to your server here: {invite_link}")
+        return
+
+    if message.content.startswith("!bee-help"):
+        await message.channel.send(
+            "🐝✨ **BeeBot Commands:**\n\n"
+            "`!ask [question]` : Mental health support or validation.\n"
+            "`!venmo` : BeeBot's Venmo info.\n"
+            "`!bee-help` : Show this list.\n"
+            "`!bee-fact` : Fun bee fact.\n"
+            "`!bee-support` : Mental health resources.\n"
+            "`!bee-mood [mood]` : Get mood support.\n"
+            "`!bee-gratitude [gratitude]` – Share appreciation.\n"
+            "`!bee-validate` : Get a compliment.\n"
+            "`!bee-announcement [msg]` : Post to announcement channel (Announcement role only).\n"
+            "`!set-announcement-channel #channel` : Set BeeBot's announcement channel (admin only).\n"
+            "`!invite` : Invite BeeBot to your server.\n"
+            "`!bee-msg [message]` : BeeBot sends you a private message."
+        )
+        return
+
+    if message.content.startswith("!bee-fact"):
+        await message.channel.send(random.choice(BEE_FACTS))
+        return
+
+    if message.content.startswith("!bee-support"):
+        await message.channel.send(
+            "🌻 **Mental health resources:**\n\n"
+            "• [988 Lifeline (US)](https://988lifeline.org)\n"
+            "• [Trans Lifeline](https://translifeline.org) – 877-565-8860\n"
+            "• [International](https://findahelpline.com)\n\n"
+            "🐝 Reaching out is brave. 💛"
+        )
+        return
+
+    # OpenAI command inputs
     if message.content.startswith("!bee-mood"):
         mood = message.content[len("!bee-mood "):].strip()
-        user_input = f"My mood is: {mood}" if mood else "Please share your mood after the command, like `!bee-mood tired but hopeful`."
+        user_input = f"My mood is: {mood}" if mood else "Please share your mood."
         prompt_messages = build_prompt(user_input)
 
     elif message.content.startswith("!bee-gratitude"):
         gratitude = message.content[len("!bee-gratitude "):].strip()
-        user_input = f"I am grateful for: {gratitude}" if gratitude else "Please share what you're grateful for after the command, like `!bee-gratitude my friends and morning tea`."
+        user_input = f"I'm grateful for: {gratitude}" if gratitude else "Please share your gratitude."
         prompt_messages = build_prompt(user_input)
 
     elif message.content.startswith("!bee-validate"):
-        user_input = "Please give me a warm, validating compliment or message with bee puns and emojis naturally."
+        user_input = "Give me a validating compliment with bee puns and emojis."
         prompt_messages = build_prompt(user_input)
 
     elif message.content.startswith("!ask"):
@@ -256,7 +237,6 @@ async def on_message(message):
     else:
         return
 
-    # OpenAI API call
     try:
         response = client_ai.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -265,46 +245,9 @@ async def on_message(message):
         )
         await message.channel.send(response.choices[0].message.content)
     except Exception as e:
-        print(f"Error: {e}")
         if message.guild:
             error_channel = await get_or_create_error_channel(message.guild)
             if error_channel:
                 await error_channel.send(f"🐝 **BeeBot Error:** `{e}`")
-
-@client.event
-async def on_thread_create(thread):
-    example = random.choice(BEEBOT_EXAMPLES)
-    never_say = "\n".join(BEEBOT_NEVER_SAY)
-
-    try:
-        messages = [message async for message in thread.history(limit=1)]
-        first_post_content = messages[0].content if messages else "No content provided."
-
-        prompt = (
-            f"A user has created a new forum thread titled '{thread.name}' with the following post:\n\n"
-            f"{first_post_content}\n\n"
-            "Please greet them warmly with BeeBot's validating style, mention bee-themed emojis, address what they've already said, and invite them to share more if they wish."
-        )
-
-        prompt_messages = [
-            {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say any of the following phrases or sentiments:\n{never_say}"},
-            {"role": "user", "content": f"Here is an example of BeeBot's style: '{example}'. Please respond to the following in BeeBot's validating style:\n\n{prompt}"}
-        ]
-
-        response = client_ai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=prompt_messages,
-            temperature=0.8
-        )
-        ai_message = response.choices[0].message.content
-
-        await thread.send(ai_message)
-
-    except Exception as e:
-        print(f"Error sending AI reply to thread: {e}")
-        if thread.guild:
-            error_channel = await get_or_create_error_channel(thread.guild)
-            if error_channel:
-                await error_channel.send(f"🐝 **BeeBot Thread Error:** `{e}`")
 
 client.run(DISCORD_TOKEN)
