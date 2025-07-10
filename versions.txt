@@ -1,0 +1,27 @@
+v1.0
+BeeBot v1.0 Features:
+
+• Responds with warmth, compassion, and bee-themed personality 🐝🍯🌼
+• Answers user questions with mental health support using OpenAI
+• Supports private messages via `!bee-msg [message]`
+• Shares uplifting bee facts with `!bee-fact`
+• Offers mental health resources with `!bee-support`
+• Provides validation with `!bee-validate`
+• Responds to moods via `!bee-mood [your mood]`
+• Shares gratitude responses with `!bee-gratitude [your gratitude]`
+• Accepts open questions with `!ask [your message]`
+• Posts announcements using `!bee-announcement [message]` (Announcement role only)
+• Admins can configure:
+  - Announcement channel (`!set-announcement-channel #channel`)
+  - Changelog channel (`!set-changelog-channel #channel`)
+• Displays recent changelog entries with `!bee-changelog`
+• Sends changelog updates on startup if version.txt changes
+• Welcome setup includes role and channel creation for BeeBot
+• Shows full help with `!bee-help`
+• Invite link via `!invite`
+
+All features maintain BeeBot's personality:
+✅ Validating  
+✅ Childlike  
+✅ Bee-themed language & emojis  
+✅ Never says harmful or invalidating phrases
