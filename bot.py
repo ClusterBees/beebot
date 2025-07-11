@@ -29,9 +29,10 @@ db = redis.Redis(
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-intents.guild_messages = True  # REQUIRED for thread events
-intents.threads = True         # Also important
-intents.members = True         # Needed for member-related events
+intents.guild_messages = True  # ✅ Enables thread events like on_thread_create
+intents.dm_messages = True
+intents.guild_reactions = True  # ✅ Enables reaction events
+intents.guild_members = True  # ✅ Enables member events like on_guild_join
 
 # Create the bot instance
 bot = commands.Bot(command_prefix="!", intents=intents)
