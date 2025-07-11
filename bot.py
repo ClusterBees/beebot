@@ -26,11 +26,12 @@ db = redis.Redis(
     decode_responses=True
 )
 
-# Define Discord bot intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-intents.dm_messages = True
+intents.guild_messages = True  # REQUIRED for thread events
+intents.threads = True         # Also important
+intents.members = True         # Needed for member-related events
 
 # Create the bot instance
 bot = commands.Bot(command_prefix="!", intents=intents)
