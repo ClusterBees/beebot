@@ -1,5 +1,9 @@
-Version 2.0.1.f  
+Version 2.0.2
 
-✨ Added /set_autoreply command to enable BeeBot in any text or forum channel
-🐝 BeeBot now reads entire forum threads and replies only if the parent forum is enabled
-🔧 Improved thread handling and context building
+🐛 Fixed duplicate code block in on_thread_create event handler
+🔧 Fixed function naming conflict (bee_fact vs bee_question)
+📝 Enhanced forum auto-reply with better error handling and logging
+⏱️ Added delay to ensure forum posts are fully created before response
+🎯 Improved message filtering to only process messages with content
+📊 Better debugging output for troubleshooting forum responses
+🚀 More robust thread handling with improved exception management

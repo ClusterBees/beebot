@@ -1,4 +1,4 @@
-version = "2.0.1.f"  # Update this version number as needed
+version = "2.0.2"  # Update this version number as needed
 import os
 import random
 import json
@@ -196,9 +196,9 @@ async def bee_fact(interaction: discord.Interaction):
     await interaction.response.send_message(fact)
 
 @bot.tree.command(name="bee_question", description="Get everyones experiences with different things.")
-async def bee_fact(interaction: discord.Interaction):
-    fact = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "I can't think of a question right now, but I love hearing yours!"
-    await interaction.response.send_message(fact)
+async def bee_question(interaction: discord.Interaction):
+    question = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "I can't think of a question right now, but I love hearing yours!"
+    await interaction.response.send_message(question)
 
 @bot.tree.command(name="bee_help", description="List BeeBot commands.")
 async def bee_help(interaction: discord.Interaction):
@@ -220,6 +220,7 @@ async def bee_help(interaction: discord.Interaction):
         "/invite\n"
         "/bee_version\n"
         "/crisis [country|all]\n\n"
+        "🌻 **Forum Auto-Reply:** Use `/set_autoreply` on a forum channel to make me automatically respond to new threads!"
     )
 
 @bot.tree.command(name="bee_support", description="Get mental health resources.")
@@ -274,7 +275,6 @@ async def bee_announcement(interaction: discord.Interaction, message: str):
     if channel_id:
         channel = interaction.guild.get_channel(channel_id)
         if channel:
-            # Markdown formatting will be preserved if passed correctly
             await channel.send(message, allowed_mentions=discord.AllowedMentions.none())
             await interaction.response.send_message("✅ Your announcement has been buzzed! 🐝", ephemeral=True)
             return
@@ -347,9 +347,18 @@ async def set_autoreply(interaction: discord.Interaction, channel: discord.TextC
             auto_reply_channels[guild_id] = set()
         auto_reply_channels[guild_id].add(channel_id)
         save_settings()
-        await interaction.response.send_message(
-            f"✅ Auto-reply enabled for {channel.mention}. BeeBot will respond to messages and new threads there! 🐝"
-        )
+        
+        # Check if it's a forum channel
+        if channel.type == discord.ChannelType.forum:
+            await interaction.response.send_message(
+                f"✅ Forum auto-reply enabled for {channel.mention}! 🐝\n"
+                f"I'll automatically respond to new threads created in this forum."
+            )
+        else:
+            await interaction.response.send_message(
+                f"✅ Auto-reply enabled for {channel.mention}! 🐝\n"
+                f"I'll respond to messages in this channel."
+            )
     elif mode.lower() == "off":
         if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
             auto_reply_channels[guild_id].remove(channel_id)
@@ -364,33 +373,49 @@ async def set_autoreply(interaction: discord.Interaction, channel: discord.TextC
 async def on_message(message):
     if message.author.bot or not message.guild:
         return
+    
+    # Handle regular text channel auto-replies
     if message.guild.id in auto_reply_channels and message.channel.id in auto_reply_channels[message.guild.id]:
-        await handle_prompt_raw(message.channel, message.content)
+        # Don't respond in forum channels here (handled by on_thread_create)
+        if message.channel.type != discord.ChannelType.forum:
+            await handle_prompt_raw(message.channel, message.content)
 
 @bot.event
 async def on_thread_create(thread):
     try:
+        print(f"🐝 Thread created: {thread.name} in {thread.parent.name} (Type: {thread.parent.type})")
+        
         # Only handle threads in forum channels
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
+            print(f"❌ Not a forum thread, skipping...")
             return
+            
         if thread.owner is None or thread.owner.bot:
+            print(f"❌ Thread owner is None or bot, skipping...")
             return
 
         guild_id = thread.guild.id
         forum_channel_id = thread.parent.id
 
-        # ✅ Check if auto-reply is enabled for the forum parent channel
+        # Check if auto-reply is enabled for the forum parent channel
         if guild_id not in auto_reply_channels or forum_channel_id not in auto_reply_channels[guild_id]:
+            print(f"❌ Auto-reply not enabled for forum {thread.parent.name}")
             return
 
+        print(f"✅ Auto-reply enabled, processing thread...")
         await thread.join()
 
-        # 🐝 Read the full conversation in the thread
+        # Add a small delay to ensure the initial message is posted
+        await asyncio.sleep(1)
+
+        # Read the full conversation in the thread
         messages = []
         async for msg in thread.history(limit=None, oldest_first=True):
-            messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
+            if msg.content.strip():  # Only include messages with content
+                messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
 
         if not messages:
+            print(f"❌ No messages found in thread")
             return
 
         full_convo = "\n".join(messages)
@@ -402,11 +427,12 @@ async def on_thread_create(thread):
             f"**{title}**\n\n"
             f"The conversation so far is:\n{full_convo}\n\n"
             f"Please reply warmly and helpfully, validating both the user's feelings and the thread context. "
-            f"Use bee puns and emojis naturally. Start with:\n"
-            f"'Hello,' [kindness] 'Here’s what you can do...'\n"
+            f"Use bee puns and emojis naturally. Start with a warm greeting and acknowledgment of their post. "
+            f"Provide helpful, supportive advice or information related to their topic. "
             f"End with a hopeful message or kind affirmation."
         )
 
+        print(f"🐝 Generating response for thread: {title}")
         messages_for_openai = build_prompt(user_input)
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -416,15 +442,12 @@ async def on_thread_create(thread):
 
         reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
         await thread.send(reply_text)
+        print(f"✅ Response sent to thread: {title}")
 
     except Exception as e:
         print(f"🐛 Error responding to thread: {e}")
-
-        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
-        await thread.send(reply_text)
-
-    except Exception as e:
-        print(f"🐛 Error responding to thread: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def handle_prompt(interaction, user_input):
     try:
@@ -446,6 +469,9 @@ async def handle_prompt_raw(channel, user_input):
         await channel.send(response.choices[0].message.content)
     except Exception as e:
         print(f"OpenAI Error: {e}")
+
+# Import asyncio for the delay in thread handling
+import asyncio
 
 # Run the bot
 bot.run(DISCORD_TOKEN)
