@@ -1,9 +1,8 @@
-Version 2.0.0
-✨ Migrated to Discord Slash Commands and Persistent Server Settings
+Version 2.0.1  
+🧵 Forum Thread Support and Expanded Validation Response
 
-🔁 All !commands replaced with modern slash commands using discord.py's command tree.
-💾 Server settings (auto-reply, announcement channels, version channels) now persist across restarts via guild_settings.json.
-🌐 Auto-syncs slash commands across guilds at startup.
-🐝 Preserved all BeeBot features including mood support, gratitude, validation, and bee facts.
-📬 Improved DM support and feedback.
-🧠 OpenAI responses retain BeeBot’s warm, validating, and bee-punny tone.
+🐝 BeeBot now responds to new forum threads by reading the title and description.
+🤗 Replies validate both the user and the situation with warmth and compassion.
+📌 Responses begin with: "Hello, [validation]. Here is what you can do to better the situation."
+🔔 The thread creator is tagged directly in BeeBot’s response.
+🌼 Maintains BeeBot’s signature tone with bee-puns, emojis, and gentle guidance.

@@ -1,3 +1,4 @@
+version = "2.0.1"
 import os
 import random
 import json
@@ -276,6 +277,49 @@ async def on_message(message):
         return
     if message.guild.id in auto_reply_channels and message.channel.id in auto_reply_channels[message.guild.id]:
         await handle_prompt_raw(message.channel, message.content)
+
+@bot.event
+async def on_thread_create(thread):
+    try:
+        # Skip if bot-created or no owner
+        if thread.owner is None or thread.owner.bot:
+            return
+
+        await thread.join()  # Ensure the bot can see and reply to the thread
+
+        # Try to get the first message posted in the thread
+        starter_message = None
+        async for msg in thread.history(limit=1, oldest_first=True):
+            starter_message = msg
+
+        title = thread.name
+        description = starter_message.content if starter_message else "(no description provided)"
+        user_mention = thread.owner.mention
+
+        user_input = (
+            f"A user created a forum post titled:\n"
+            f"**{title}**\n\n"
+            f"With this description:\n"
+            f"{description}\n\n"
+            f"Please validate both the user and the situation compassionately. "
+            f"Start the response with:\n"
+            f"'Hello,' [validation] 'Here is what you can do to better the situation.'\n\n"
+            f"The tone should be warm, supportive, and bee-punny, using emojis naturally. "
+            f"End with a hopeful suggestion or affirmation."
+        )
+
+        messages = build_prompt(user_input)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0.8
+        )
+
+        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
+        await thread.send(reply_text)
+
+    except Exception as e:
+        print(f"Error responding to new thread: {e}")
 
 async def handle_prompt(interaction, user_input):
     try:
