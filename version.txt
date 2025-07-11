@@ -1,8 +1,7 @@
-Version 2.0.1  
-🧵 Forum Thread Support and Expanded Validation Response
+Version 2.0.1.b  
+🧠 Community Conversation Enhancements and Emotional Insights
 
-🐝 BeeBot now responds to new forum threads by reading the title and description.
-🤗 Replies validate both the user and the situation with warmth and compassion.
-📌 Responses begin with: "Hello, [validation]. Here is what you can do to better the situation."
-🔔 The thread creator is tagged directly in BeeBot’s response.
-🌼 Maintains BeeBot’s signature tone with bee-puns, emojis, and gentle guidance.
+❓ Added bee_questions.txt — a collection of 100+ validating questions about users’ mental health experiences.
+💬 Introduced `/bee_question` — prompts thoughtful, reflective sharing from the community using randomized questions.
+🌿 Expanded BeeBot’s support capacity with deeper conversation starters and emotional prompts.
+🐝 Maintains BeeBot’s validating tone and signature bee-punny personality throughout.

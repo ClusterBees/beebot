@@ -1,4 +1,4 @@
-version = "2.0.1"
+version = "2.0.1.b"
 import os
 import random
 import json
@@ -47,6 +47,7 @@ Always respond with warmth, compassion, and bee-themed puns and emojis naturally
 BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
 BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
+BEE_QUESTIONS = load_lines("bee_questions.txt")
 
 # Load settings
 def load_settings():
@@ -145,6 +146,11 @@ async def bee_fact(interaction: discord.Interaction):
     fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
     await interaction.response.send_message(fact)
 
+@bot.tree.command(name="bee_question", description="Get everyones experiences with different things.")
+async def bee_fact(interaction: discord.Interaction):
+    fact = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "I can't think of a question right now, but I love hearing yours!"
+    await interaction.response.send_message(fact)
+
 @bot.tree.command(name="bee_help", description="List BeeBot commands.")
 async def bee_help(interaction: discord.Interaction):
     await interaction.response.send_message(
@@ -155,6 +161,7 @@ async def bee_help(interaction: discord.Interaction):
         "/bee_mood [mood]\n"
         "/bee_gratitude [text]\n"
         "/bee_validate\n"
+        "/bee_question\n"
         "/bee_announcement [text]\n"
         "/set_announcement_channel\n"
         "/set_version_channel\n"
