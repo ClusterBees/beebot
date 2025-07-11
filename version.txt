@@ -1,9 +1,18 @@
-Version 2.0.1.c  
-🆕 Added autocomplete and "all" option to /crisis command  
-🧠 Increased memory for better conversation context
+Version 2.0.1.d  
+🔄 Switched from MySQL to Redis for faster, more scalable settings storage
+⚙️ Overhauled settings system — BeeBot now saves per-guild configuration using Redis keys
+💬 Improved auto-reply logic to support Redis-based channel toggles
+📁 Fully removed reliance on JSON or SQL-based storage systems
 
-🔍 /crisis now shows suggested countries as users type, with interactive choices for quicker access.  
-🌎 Added "all" option to display all available crisis lines in one response.  
-🤖 Cleaner, smarter command interface using app_commands.Choice and app_commands.autocomplete.  
-🧠 BeeBot’s memory per server doubled from 10 to 20 messages for more thoughtful, contextual responses.  
-🛠️ No changes to core behavior or other commands — just a smoother UX!
+🐝 What’s New:
+
+⚡ Redis Integration: All guild settings (auto-reply, announcement channels, version channels) are now stored in Redis for speed and scalability.
+
+🚀 No more JSON or MySQL — BeeBot is now lighter and more cloud-ready.
+
+🧠 Auto-reply rewrite: Uses Redis to track which channels have BeeBot auto-replies enabled or disabled.
+
+🔧 Simplified the bot’s environment — easier to deploy with .env Redis settings.
+
+🌟 All previous features remain untouched — just a leaner, buzzier BeeBot behind the scenes!
+🔐 Reminder: if you're self-hosting, make sure your Redis server has persistence enabled.

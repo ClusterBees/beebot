@@ -1,4 +1,4 @@
-version = "2.0.1.c"  # Update this version number as needed
+version = "2.0.1.d"  # Update this version number as needed
 import os
 import random
 import json
@@ -7,6 +7,7 @@ from discord.ext import commands
 from discord import app_commands
 from openai import OpenAI
 from dotenv import load_dotenv
+import redis
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,6 +18,14 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Retrieve Discord bot token from environment variables
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
+# Connect to Redis
+db = redis.Redis(
+    host=os.getenv("REDIS_HOST"),
+    port=int(os.getenv("REDIS_PORT")),
+    password=os.getenv("REDIS_PASSWORD"),
+    decode_responses=True
+)
+
 # Define Discord bot intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,9 +34,6 @@ intents.dm_messages = True
 
 # Create the bot instance
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# Path to settings file
-SETTINGS_FILE = "guild_settings.json"
 
 # Load lines from file
 def load_lines(filename):
@@ -50,32 +56,29 @@ BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 BEE_QUESTIONS = load_lines("bee_questions.txt")
 
-# Load settings
+# Load settings from Redis
 def load_settings():
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r") as f:
-            data = json.load(f)
-            return {
-                "auto_reply_channels": {int(k): set(v) for k, v in data.get("auto_reply_channels", {}).items()},
-                "announcement_channels": {int(k): v for k, v in data.get("announcement_channels", {}).items()},
-                "version_channels": {int(k): v for k, v in data.get("version_channels", {}).items()}
-            }
-    else:
-        return {
-            "auto_reply_channels": {},
-            "announcement_channels": {},
-            "version_channels": {}
-        }
+    auto_reply_channels = {}
+    announcement_channels = {}
+    version_channels = {}
+    for key in db.scan_iter("guild:*:announcement_channel"):
+        guild_id = int(key.split(":")[1])
+        auto_reply_channels[guild_id] = set(json.loads(db.get(f"guild:{guild_id}:auto_reply_channels") or "[]"))
+        announcement_channels[guild_id] = int(db.get(f"guild:{guild_id}:announcement_channel") or 0)
+        version_channels[guild_id] = int(db.get(f"guild:{guild_id}:version_channel") or 0)
+    return {
+        "auto_reply_channels": auto_reply_channels,
+        "announcement_channels": announcement_channels,
+        "version_channels": version_channels
+    }
 
-# Save settings
+# Save settings to Redis
 def save_settings():
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump({
-            "auto_reply_channels": {str(k): list(v) for k, v in auto_reply_channels.items()},
-            "announcement_channels": {str(k): v for k, v in announcement_channels.items()},
-            "version_channels": {str(k): v for k, v in version_channels.items()}
-        }, f, indent=2)
-    print("✅ Settings saved to disk.")
+    for guild_id in auto_reply_channels:
+        db.set(f"guild:{guild_id}:auto_reply_channels", json.dumps(list(auto_reply_channels[guild_id])))
+        db.set(f"guild:{guild_id}:announcement_channel", announcement_channels.get(guild_id, 0))
+        db.set(f"guild:{guild_id}:version_channel", version_channels.get(guild_id, 0))
+    print("✅ Settings saved to Redis.")
 
 # Load settings on boot
 settings = load_settings()
@@ -341,7 +344,7 @@ async def on_thread_create(thread):
 
         await thread.join()  # Ensure the bot can see and reply to the thread
 
-        # Try to get the first message posted in the thread
+        # Get the first message posted in the thread
         starter_message = None
         async for msg in thread.history(limit=1, oldest_first=True):
             starter_message = msg
