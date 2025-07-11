@@ -1,4 +1,4 @@
-version = "2.0.1.d"  # Update this version number as needed
+version = "2.0.1.e"  # Update this version number as needed
 import os
 import random
 import json
@@ -338,6 +338,10 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
+        # Only auto-respond to forum posts (threads created in forum channels)
+        if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
+            return
+
         # Skip if bot-created or no owner
         if thread.owner is None or thread.owner.bot:
             return

@@ -1,18 +1,3 @@
-Version 2.0.1.d  
-🔄 Switched from MySQL to Redis for faster, more scalable settings storage
-⚙️ Overhauled settings system — BeeBot now saves per-guild configuration using Redis keys
-💬 Improved auto-reply logic to support Redis-based channel toggles
-📁 Fully removed reliance on JSON or SQL-based storage systems
+Version 2.0.1.e  
 
-🐝 What’s New:
-
-⚡ Redis Integration: All guild settings (auto-reply, announcement channels, version channels) are now stored in Redis for speed and scalability.
-
-🚀 No more JSON or MySQL — BeeBot is now lighter and more cloud-ready.
-
-🧠 Auto-reply rewrite: Uses Redis to track which channels have BeeBot auto-replies enabled or disabled.
-
-🔧 Simplified the bot’s environment — easier to deploy with .env Redis settings.
-
-🌟 All previous features remain untouched — just a leaner, buzzier BeeBot behind the scenes!
-🔐 Reminder: if you're self-hosting, make sure your Redis server has persistence enabled.
+🧠 should auto reply in forums
