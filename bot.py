@@ -1,4 +1,4 @@
-version = "2.0.1.e"  # Update this version number as needed
+version = "2.0.1.f"  # Update this version number as needed
 import os
 import random
 import json
@@ -216,6 +216,7 @@ async def bee_help(interaction: discord.Interaction):
         "/set_version_channel\n"
         "/bee_msg [text]\n"
         "/bee_autoreply [on|off]\n"
+        "/set_autoreply [channel] [on|off]\n"
         "/invite\n"
         "/bee_version\n"
         "/crisis [country|all]\n\n"
@@ -328,6 +329,37 @@ async def bee_autoreply(interaction: discord.Interaction, mode: str):
     else:
         await interaction.response.send_message("❗ Use: `/bee_autoreply on` or `/bee_autoreply off`", ephemeral=True)
 
+@bot.tree.command(name="set_autoreply", description="Enable or disable BeeBot auto-replies in a specific channel.")
+@app_commands.describe(
+    channel="The channel where BeeBot should auto-reply (text or forum)",
+    mode="Choose 'on' to enable or 'off' to disable"
+)
+async def set_autoreply(interaction: discord.Interaction, channel: discord.TextChannel, mode: str):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+    channel_id = channel.id
+
+    if mode.lower() == "on":
+        if guild_id not in auto_reply_channels:
+            auto_reply_channels[guild_id] = set()
+        auto_reply_channels[guild_id].add(channel_id)
+        save_settings()
+        await interaction.response.send_message(
+            f"✅ Auto-reply enabled for {channel.mention}. BeeBot will respond to messages and new threads there! 🐝"
+        )
+    elif mode.lower() == "off":
+        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
+            auto_reply_channels[guild_id].remove(channel_id)
+            if not auto_reply_channels[guild_id]:
+                del auto_reply_channels[guild_id]
+            save_settings()
+        await interaction.response.send_message(f"❌ Auto-reply disabled for {channel.mention}.")
+    else:
+        await interaction.response.send_message("❗ Use `/set_autoreply [channel] [on|off]`", ephemeral=True)
+
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild:
@@ -338,14 +370,22 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
+        # Only handle threads in forum channels
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
             return
         if thread.owner is None or thread.owner.bot:
             return
 
-        await thread.join()  # Allow bot to read/send messages in thread
+        guild_id = thread.guild.id
+        forum_channel_id = thread.parent.id
 
-        # Read all messages in the thread
+        # ✅ Check if auto-reply is enabled for the forum parent channel
+        if guild_id not in auto_reply_channels or forum_channel_id not in auto_reply_channels[guild_id]:
+            return
+
+        await thread.join()
+
+        # 🐝 Read the full conversation in the thread
         messages = []
         async for msg in thread.history(limit=None, oldest_first=True):
             messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
@@ -357,7 +397,6 @@ async def on_thread_create(thread):
         user_mention = thread.owner.mention
         title = thread.name
 
-        # Compose prompt
         user_input = (
             f"A user started a forum thread titled:\n"
             f"**{title}**\n\n"
@@ -374,6 +413,12 @@ async def on_thread_create(thread):
             messages=messages_for_openai,
             temperature=0.8
         )
+
+        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
+        await thread.send(reply_text)
+
+    except Exception as e:
+        print(f"🐛 Error responding to thread: {e}")
 
         reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
         await thread.send(reply_text)

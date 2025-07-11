@@ -1,3 +1,5 @@
-Version 2.0.1.e  
+Version 2.0.1.f  
 
-🧠 should auto reply in forums
+✨ Added /set_autoreply command to enable BeeBot in any text or forum channel
+🐝 BeeBot now reads entire forum threads and replies only if the parent forum is enabled
+🔧 Improved thread handling and context building
