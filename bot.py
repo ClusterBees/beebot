@@ -338,41 +338,40 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
-        # Auto-reply only in forum channels (default behavior)
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
             return
-
-        # Skip if bot-created or no owner
         if thread.owner is None or thread.owner.bot:
             return
 
-        await thread.join()  # Ensure the bot can see and reply to the thread
+        await thread.join()  # Allow bot to read/send messages in thread
 
-        # Get the first message posted in the thread
-        starter_message = None
-        async for msg in thread.history(limit=1, oldest_first=True):
-            starter_message = msg
+        # Read all messages in the thread
+        messages = []
+        async for msg in thread.history(limit=None, oldest_first=True):
+            messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
 
-        title = thread.name
-        description = starter_message.content if starter_message else "(no description provided)"
+        if not messages:
+            return
+
+        full_convo = "\n".join(messages)
         user_mention = thread.owner.mention
+        title = thread.name
 
+        # Compose prompt
         user_input = (
-            f"A user created a forum post titled:\n"
+            f"A user started a forum thread titled:\n"
             f"**{title}**\n\n"
-            f"With this description:\n"
-            f"{description}\n\n"
-            f"Please validate both the user and the situation compassionately. "
-            f"Start the response with:\n"
-            f"'Hello,' [validation] 'Here is what you can do to better the situation.'\n\n"
-            f"The tone should be warm, supportive, and bee-punny, using emojis naturally. "
-            f"End with a hopeful suggestion or affirmation."
+            f"The conversation so far is:\n{full_convo}\n\n"
+            f"Please reply warmly and helpfully, validating both the user's feelings and the thread context. "
+            f"Use bee puns and emojis naturally. Start with:\n"
+            f"'Hello,' [kindness] 'Here’s what you can do...'\n"
+            f"End with a hopeful message or kind affirmation."
         )
 
-        messages = build_prompt(user_input)
+        messages_for_openai = build_prompt(user_input)
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=messages,
+            messages=messages_for_openai,
             temperature=0.8
         )
 
@@ -380,7 +379,7 @@ async def on_thread_create(thread):
         await thread.send(reply_text)
 
     except Exception as e:
-        print(f"Error responding to new thread: {e}")
+        print(f"🐛 Error responding to thread: {e}")
 
 async def handle_prompt(interaction, user_input):
     try:
