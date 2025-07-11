@@ -1,0 +1,5 @@
+FROM redis:7.2-alpine
+
+COPY redis.conf /redis-on-railway/redis.conf
+
+CMD ["redis-server", "/redis-on-railway/redis.conf"]
