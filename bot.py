@@ -338,7 +338,7 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
-        # Only auto-respond to forum posts (threads created in forum channels)
+        # Auto-reply only in forum channels (default behavior)
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
             return
 
