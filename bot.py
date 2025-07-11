@@ -1,9 +1,10 @@
-version = "2.0.1.b"
+version = "2.0.1.c"  # Update this version number as needed
 import os
 import random
 import json
 import discord
 from discord.ext import commands
+from discord import app_commands
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -18,9 +19,9 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Define Discord bot intents
 intents = discord.Intents.default()
-intents.message_content = True  # Allows bot to read message content
-intents.guilds = True  # Allows bot to see guild information
-intents.dm_messages = True  # Allows bot to read DM messages
+intents.message_content = True
+intents.guilds = True
+intents.dm_messages = True
 
 # Create the bot instance
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -85,7 +86,7 @@ version_channels = settings["version_channels"]
 # Memory store
 guild_memory = {}
 
-def store_message_in_memory(guild_id, message, max_memory=10):
+def store_message_in_memory(guild_id, message, max_memory=20):
     if guild_id not in guild_memory:
         guild_memory[guild_id] = []
     guild_memory[guild_id].append({"role": "user", "content": message})
@@ -141,6 +142,51 @@ async def on_guild_join(guild):
             except Exception as e:
                 print(f"Error creating role {role_name}: {e}")
 
+# Crisis Choices + Command with Autocomplete
+CRISIS_CHOICES = [
+    app_commands.Choice(name="United States", value="us"),
+    app_commands.Choice(name="United Kingdom", value="uk"),
+    app_commands.Choice(name="Canada", value="canada"),
+    app_commands.Choice(name="Australia", value="australia"),
+    app_commands.Choice(name="Global", value="global"),
+    app_commands.Choice(name="All", value="all"),
+]
+
+async def crisis_autocomplete(interaction: discord.Interaction, current: str):
+    current = current.lower()
+    return [
+        choice for choice in CRISIS_CHOICES
+        if current in choice.name.lower() or current in choice.value.lower()
+    ][:25]
+
+@bot.tree.command(name="crisis", description="Get a crisis line for your country (or see all).")
+@app_commands.describe(country="Select a country or 'all'")
+@app_commands.autocomplete(country=crisis_autocomplete)
+async def crisis(interaction: discord.Interaction, country: str):
+    country = country.strip().lower()
+    crisis_lines = {
+        "us": "🇺🇸 **US**: 988",
+        "uk": "🇬🇧 **UK**: 116 123 (Samaritans)",
+        "canada": "🇨🇦 **Canada**: 1-833-456-4566",
+        "australia": "🇦🇺 **Australia**: 13 11 14",
+        "global": "🌐 **Global**: https://www.befrienders.org/"
+    }
+
+    if country in crisis_lines:
+        response = f"💛 We care about you. Please reach out:\n{crisis_lines[country]}"
+    elif country == "all":
+        response = (
+            "💛 We care about you. Please reach out to a professional crisis line:\n\n"
+            + "\n".join(crisis_lines.values())
+        )
+    else:
+        response = (
+            "⚠️ I don't recognize that country. Try one of these:\n"
+            "`us`, `uk`, `canada`, `australia`, `global`, or `all`"
+        )
+
+    await interaction.response.send_message(response)
+
 @bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
 async def bee_fact(interaction: discord.Interaction):
     fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
@@ -168,7 +214,8 @@ async def bee_help(interaction: discord.Interaction):
         "/bee_msg [text]\n"
         "/bee_autoreply [on|off]\n"
         "/invite\n"
-        "/bee_version"
+        "/bee_version\n"
+        "/crisis [country|all]\n\n"
     )
 
 @bot.tree.command(name="bee_support", description="Get mental health resources.")

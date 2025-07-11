@@ -1,7 +1,9 @@
-Version 2.0.1.b  
-🧠 Community Conversation Enhancements and Emotional Insights
+Version 2.0.1.c  
+🆕 Added autocomplete and "all" option to /crisis command  
+🧠 Increased memory for better conversation context
 
-❓ Added bee_questions.txt — a collection of 100+ validating questions about users’ mental health experiences.
-💬 Introduced `/bee_question` — prompts thoughtful, reflective sharing from the community using randomized questions.
-🌿 Expanded BeeBot’s support capacity with deeper conversation starters and emotional prompts.
-🐝 Maintains BeeBot’s validating tone and signature bee-punny personality throughout.
+🔍 /crisis now shows suggested countries as users type, with interactive choices for quicker access.  
+🌎 Added "all" option to display all available crisis lines in one response.  
+🤖 Cleaner, smarter command interface using app_commands.Choice and app_commands.autocomplete.  
+🧠 BeeBot’s memory per server doubled from 10 to 20 messages for more thoughtful, contextual responses.  
+🛠️ No changes to core behavior or other commands — just a smoother UX!
