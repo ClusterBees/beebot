@@ -401,22 +401,28 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
+        print(f"🧵 Thread created: {thread.name} (ID: {thread.id}) in {thread.guild.name}")
+
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
+            print(f"🔕 Thread parent is not a forum: {thread.parent}")
             return
 
         guild_id = thread.guild.id
         forum_channel_id = thread.parent.id
 
-        # Check if this forum channel is enabled
+        print(f"🔍 Checking if auto-reply is enabled for forum: {thread.parent.name} (ID: {forum_channel_id})")
         if forum_channel_id not in auto_reply_channels.get(guild_id, set()):
             print(f"❌ Auto-reply not enabled for {thread.parent.name}")
             return
 
         await thread.join()
+        print("✅ Joined thread")
+
         await asyncio.sleep(1)
 
         # Collect messages
         messages = []
+        print("📥 Collecting thread messages...")
         async for msg in thread.history(limit=10, oldest_first=True):
             if msg.content.strip():
                 messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
@@ -426,12 +432,15 @@ async def on_thread_create(thread):
             return
 
         convo = "\n".join(messages)
-        author = messages[0].split(":")[0] if messages else None
+        print(f"📝 Conversation collected:\n{convo}")
+
         thread_starter = thread.owner or (await thread.history(limit=1, oldest_first=True).flatten())[0].author
         user_id = thread_starter.id
         user_mention = thread_starter.mention
+        print(f"👤 Thread starter: {thread_starter.display_name} (ID: {user_id})")
 
         if not has_user_consented(guild_id, user_id):
+            print(f"🔒 User {user_id} has not consented.")
             await thread.send(
                 f"{user_mention} 🐝 I’d love to help, but I need your permission first.\n"
                 f"Please type `/consent` in the server. 💛"
@@ -445,6 +454,7 @@ async def on_thread_create(thread):
             f"Reply with warmth, bee puns, emojis, and kindness. Validate the user's feelings."
         )
 
+        print("🤖 Sending prompt to OpenAI...")
         messages_for_openai = build_prompt(prompt)
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
