@@ -238,9 +238,9 @@ async def handle_prompt_raw(channel: discord.TextChannel, user_input: str, user_
 
 ### --- Slash Commands ---
 @bot.tree.command(name="remind", description="Set a reminder for yourself.")
-@app_commands.describe(time="Time like 10m, 2h, 1d", message="What should I remind you about?")
-async def remind(interaction: discord.Interaction, time: str, message: str):
-    duration = parse_duration(time)
+@app_commands.describe(duration_str="Time like 10m, 2h, 1d", message="What should I remind you about?")
+async def remind(interaction: discord.Interaction, duration_str: str, message: str):
+    duration = parse_duration(duration_str)
     if not duration or duration <= 0 or duration > 604800:  # Max: 7 days
         await interaction.response.send_message("⚠️ Please use a valid time (like `10m`, `2h`, `1d`). Max is 7 days.", ephemeral=True)
         return
