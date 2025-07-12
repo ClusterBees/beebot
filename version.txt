@@ -1,22 +1,28 @@
-Version 3.0.1
+Version 3.1.0
 
-✨ New & Improved
-✅ Slash command announcement now supports message formatting (Markdown + links + emojis)
+🐝 Fun & Affirming Features
+✅ Added /bee_joke with bee-themed jokes loaded from bee_jokes.txt
+✅ Added /bee_name which creates nicknames from prefix and suffix files
+✅ Added /bee_match to match users with random non-bot members
+✅ Updated /buzzwords to pull short affirmations from bee_fortunes.txt
+✅ Added /bee_quiz for bee trivia, pulling from bee_quiz.txt with spoiler answers
 
-✅ Users can insert \\n to create line breaks or new paragraphs in announcements
+🧠 Trivia System
+✅ New loader: load_quiz_questions() for multi-line quiz parsing
+✅ Answers now display in Discord's spoiler format
 
-✅ Added robust debug logging for forum thread auto-replies
+📁 File-Based Content
+✅ All fun commands now pull from external .txt files for easy updates:
+  - bee_jokes.txt
+  - bee_name_prefixes.txt / bee_name_suffixes.txt
+  - bee_fortunes.txt (used by buzzwords)
+  - bee_quiz.txt
 
-✅ Replaced deprecated .flatten() with async generator usage when reading thread messages
+📜 Help Command
+✅ Updated /bee_help to include all current slash commands by category
 
-✅ Improved thread starter detection using fallback logic (thread.owner or first message author)
+🧹 Misc Cleanup
+✅ Removed unused command placeholders (e.g. /bee_poem, /bee_dance)
+✅ Buzzwords now match tone with the fortune-style affirmations
 
-🐛 Bug Fixes
-🐞 Fixed issue where /announcement did not work due to being a prefix command (!announcement)
-
-🐞 Prevented on_thread_create from silently failing when no content was found
-
-🐞 Improved error handling and visibility during OpenAI or Discord failures
-
-🔒 Consent System
-⛔ Thread replies now gracefully skip users who haven’t provided /consent, with a polite prompt
+💛 As always, BeeBot stays sweet, validating, and gentle. Never judgmental.

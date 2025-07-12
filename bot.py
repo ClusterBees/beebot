@@ -1,4 +1,4 @@
-version = "3.0.1"
+version = "3.1.0"
 
 import os
 import random
@@ -37,8 +37,6 @@ intents.dm_messages = True
 intents.messages = True
 intents.typing = False  # Optional
 intents.message_content = True
-intents.guilds = True
-intents.message_content = True
 
 # Create bot
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -58,11 +56,40 @@ BEEBOT_PERSONALITY = """
 You are BeeBot, a validating, kind, bee-themed support bot. You speak with compassion, warmth, and gentle encouragement.
 Avoid judgment, use bee puns and emojis naturally, and never say anything from the "never say" list.
 """
+def load_quiz_questions(filename):
+    questions = []
+    if not os.path.exists(filename):
+        return questions
+
+    with open(filename, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    for i in range(0, len(lines), 5):
+        if i + 4 <= len(lines):
+            question_line = lines[i]
+            a = lines[i + 1]
+            b = lines[i + 2]
+            c = lines[i + 3]
+            answer_line = lines[i + 4]
+
+            if question_line.startswith("QUESTION:") and answer_line.startswith("ANSWER:"):
+                questions.append({
+                    "question": question_line[9:].strip(),
+                    "options": [a, b, c],
+                    "answer": answer_line[7:].strip()
+                })
+
+    return questions
 
 BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
 BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 BEE_QUESTIONS = load_lines("bee_questions.txt")
+BEE_JOKES = load_lines("bee_jokes.txt")
+BEE_NAME_PREFIXES = load_lines("bee_name_prefixes.txt")
+BEE_NAME_SUFFIXES = load_lines("bee_name_suffixes.txt")
+BEE_FORTUNES = load_lines("bee_fortunes.txt")
+BEE_QUIZZES = load_quiz_questions("bee_quiz.txt")
 
 ### --- Redis-Based Settings Management ---
 
@@ -181,6 +208,56 @@ async def handle_prompt_raw(channel: discord.TextChannel, user_input: str, user_
         print(f"OpenAI Error: {e}")
 
 ### --- Slash Commands ---
+@bot.tree.command(name="bee_quiz", description="Test your bee knowledge!")
+async def bee_quiz(interaction: discord.Interaction):
+    if not BEE_QUIZZES:
+        await interaction.response.send_message("🐝 Hmm... I don't have any quizzes right now.", ephemeral=True)
+        return
+
+    q = random.choice(BEE_QUIZZES)
+    formatted_options = "\n".join(q["options"])
+    await interaction.response.send_message(
+        f"🧠 **{q['question']}**\n\n{formatted_options}\n\n*(Answer: {q['answer']})*"
+    )
+
+@bot.tree.command(name="fortune", description="Get some validating buzzword messages for your day!")
+async def fortune(interaction: discord.Interaction):
+    if not BEE_FORTUNES:
+        await interaction.response.send_message(
+            "🐝 Hmm... I can’t think of any fortunes right now!", ephemeral=True
+        )
+        return
+
+    selection = random.sample(BEE_FORTUNES, min(4, len(BEE_FORTUNES)))
+    response = "🌼 Your fortunes today are:\n" + "\n".join(f"*{line}*" for line in selection)
+    await interaction.response.send_message(response)
+
+@bot.tree.command(name="bee_match", description="Find your bee buddy match!")
+async def bee_match(interaction: discord.Interaction):
+    members = [
+        m for m in interaction.guild.members
+        if not m.bot and m != interaction.user
+    ]
+
+    if not members:
+        await interaction.response.send_message("🐝 Hmm... no one to match you with right now!", ephemeral=True)
+        return
+
+    match = random.choice(members)
+    compatibility = random.randint(25, 100)
+
+    await interaction.response.send_message(
+        f"💛 You and {match.mention} have a **{compatibility}%** pollen-ship compatibility! 🐝✨"
+    )
+
+@bot.tree.command(name="bee_name", description="Get a cute bee-themed nickname!")
+async def bee_name(interaction: discord.Interaction):
+    if not BEE_NAME_PREFIXES or not BEE_NAME_SUFFIXES:
+        await interaction.response.send_message("🐝 Hmm... I can't come up with a bee name right now!", ephemeral=True)
+        return
+
+    name = random.choice(BEE_NAME_PREFIXES) + random.choice(BEE_NAME_SUFFIXES)
+    await interaction.response.send_message(f"🐝 Your bee name is: **{name}**!")
 
 @bot.tree.command(name="consent", description="Give BeeBot permission to send your messages to OpenAI.")
 async def consent(interaction: discord.Interaction):
@@ -195,17 +272,30 @@ async def consent(interaction: discord.Interaction):
 @bot.tree.command(name="bee_help", description="List BeeBot commands.")
 async def bee_help(interaction: discord.Interaction):
     await interaction.response.send_message(
-        "🐝✨ **BeeBot Commands:**\n\n"
-        "/ask [question] – Ask me anything!\n"
-        "/bee_fact – Get a fun bee fact.\n"
-        "/bee_question – Reflective questions for everyone.\n"
-        "/bee_validate – A validating compliment 💛\n"
-        "/bee_support – Mental health resources.\n"
-        "/bee_mood [text] – Share your mood.\n"
-        "/bee_gratitude [text] – Share gratitude.\n"
-        "/crisis [country] – Get crisis line info.\n"
-        "/consent – Required before I process your messages.\n\n"
-        "🌻 Use `/set_autoreply` to enable forum auto-replies!"
+        "🐝✨ **BeeBot Slash Commands:**\n\n"
+        "**Support & Wellbeing**\n"
+        "/ask [question] – Ask BeeBot anything\n"
+        "/bee_validate – Get a validating compliment 💛\n"
+        "/bee_support – Mental health resources\n"
+        "/crisis [country] – Get a crisis line\n"
+        "/bee_mood [text] – Share your mood\n"
+        "/bee_gratitude [text] – Share something you're grateful for\n"
+        "/consent – Grant permission for BeeBot to reply using OpenAI\n\n"
+        "**Fun & Encouragement**\n"
+        "/bee_fact – Get a fun bee fact 🐝\n"
+        "/bee_question – Reflective prompt for the hive\n"
+        "/buzzwords – Get 4 validating affirmations 📝\n"
+        "/bee_joke – Hear a bee-themed joke 😄\n"
+        "/bee_name – Get a fun bee-themed nickname 🎉\n"
+        "/bee_match – Match with another bee buddy 🐝💛\n"
+        "/bee_quiz – Test your bee knowledge 📚\n"
+        "**Setup & Admin**\n"
+        "/set_autoreply [channel] [on/off] – Enable or disable auto-replies\n"
+        "/bee_autoreply [on/off] – Toggle auto-reply in the current channel\n"
+        "/set_announcement_channel – Set a channel for announcements 📢\n"
+        "/set_version_channel – Set a channel for version updates 🆕\n"
+        "/announcement [message] – Send a formatted announcement (requires 'Announcement' role)\n\n"
+        "🌻 Need help? Just buzz! I'm always here to support you. 💛"
     )
 
 @bot.tree.command(name="bee_support", description="Get mental health resources.")
@@ -353,6 +443,14 @@ async def set_announcement_channel(interaction: discord.Interaction):
     announcement_channels[interaction.guild.id] = interaction.channel.id
     save_settings(auto_reply_channels, announcement_channels, version_channels)
     await interaction.response.send_message(f"✅ Announcements will post in {interaction.channel.mention}")
+
+@bot.tree.command(name="bee_joke", description="Get a fun bee-themed joke!")
+async def bee_joke(interaction: discord.Interaction):
+    if BEE_JOKES:
+        joke = random.choice(BEE_JOKES)
+    else:
+        joke = "🐝 Hmm... I couldn’t think of a joke, but I hope you’re smiling anyway!"
+    await interaction.response.send_message(joke)
 
 @bot.tree.command(name="announcement", description="Send an announcement to the configured announcement channel.")
 @app_commands.describe(message="The announcement message to send.")
