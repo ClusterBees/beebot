@@ -1,4 +1,4 @@
-version = "3.0.0"
+version = "3.0.1"
 
 import os
 import random
@@ -371,52 +371,61 @@ async def on_thread_create(thread):
     try:
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
             return
-        if thread.owner is None or thread.owner.bot:
-            return
 
         guild_id = thread.guild.id
         forum_channel_id = thread.parent.id
 
+        # Check if this forum channel is enabled
         if forum_channel_id not in auto_reply_channels.get(guild_id, set()):
+            print(f"❌ Auto-reply not enabled for {thread.parent.name}")
             return
 
         await thread.join()
         await asyncio.sleep(1)
 
+        # Collect messages
         messages = []
-        async for msg in thread.history(limit=None, oldest_first=True):
+        async for msg in thread.history(limit=10, oldest_first=True):
             if msg.content.strip():
                 messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
 
         if not messages:
+            print(f"❌ No message content found in thread: {thread.name}")
             return
 
         convo = "\n".join(messages)
+        author = messages[0].split(":")[0] if messages else None
+        thread_starter = thread.owner or (await thread.history(limit=1, oldest_first=True).flatten())[0].author
+        user_id = thread_starter.id
+        user_mention = thread_starter.mention
+
+        if not has_user_consented(guild_id, user_id):
+            await thread.send(
+                f"{user_mention} 🐝 I’d love to help, but I need your permission first.\n"
+                f"Please type `/consent` in the server. 💛"
+            )
+            return
+
         prompt = (
             f"A user started a thread titled:\n"
             f"**{thread.name}**\n\n"
             f"Conversation so far:\n{convo}\n\n"
-            f"Reply with warmth, bee puns, and validating advice. Include emojis. Start with a kind greeting. End with kindness."
+            f"Reply with warmth, bee puns, emojis, and kindness. Validate the user's feelings."
         )
-
-        user_mention = thread.owner.mention
-        if not has_user_consented(guild_id, thread.owner.id):
-            await thread.send(
-                f"{user_mention} 🐝 I’d love to help, but I need your permission to respond.\n"
-                f"Please type `/consent` in the server first. 💛"
-            )
-            return
 
         messages_for_openai = build_prompt(prompt)
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", messages=messages_for_openai, temperature=0.8
+            model="gpt-3.5-turbo",
+            messages=messages_for_openai,
+            temperature=0.8
         )
 
         reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
         await thread.send(reply_text)
+        print(f"✅ Responded to thread: {thread.name}")
 
     except Exception as e:
-        print(f"🐛 Thread error: {e}")
+        print(f"🐛 Error in thread handler: {e}")
 
 ### --- Version Handling ---
 

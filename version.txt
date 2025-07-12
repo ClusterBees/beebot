@@ -1,38 +1,43 @@
-Version 3.0.0
-- Full compliance with Discord Terms of Service via opt-in consent system for OpenAI usage
-- All features from v2.0 retained and improved
-- OpenAI responses (e.g. /ask, /bee_mood, forum replies) require per-user consent via /consent
-- BeeBot personality updated for warmth, compassion, and bee-themed responses with emoji 🐝🍯🌻
-- Persistent settings stored securely using Redis:
-  • Auto-reply channels (text + forum)
-  • Announcement and version update channels
-- Slash command system (no prefix-based commands used)
-- New or improved slash commands:
-  • /consent – Required before BeeBot will process messages
-  • /ask – Ask BeeBot any question (requires consent)
-  • /bee_fact – Fun random bee facts
-  • /bee_question – Reflective questions to spark conversation
-  • /bee_validate – Validating compliment using bee puns 🐝
-  • /bee_gratitude – Express gratitude and get a kind reply
-  • /bee_mood – Share your mood for an empathetic response
-  • /bee_support – Mental health support links (US, global, LGBTQ+)
-  • /crisis – View crisis line info by country (US, UK, Canada, etc.)
-  • /bee_help – List of commands
-  • /bee_autoreply – Toggle auto-reply in current channel
-  • /set_autoreply – Toggle auto-reply in any text/forum channel
+3.0.1
+- ✅ Full compliance with Discord Terms of Service via per-user consent system before any OpenAI processing
+- 🔐 Consent required before BeeBot uses OpenAI to respond in threads, channels, or DMs
+- 💬 All slash-command-based interface (no legacy prefixes)
+- 🧠 BeeBot personality: validating, bee-themed, warm, and educational — with emojis 🐝🍯🌻
+- 🗃️ Redis-backed persistent settings for:
+  • Auto-reply enabled channels (text + forum)
+  • Announcement channels
+  • Version update channels
+- 📣 Announcements require "Announcement" role
+- 🧠 Uses OpenAI's GPT-3.5-turbo to generate validating responses
+- 🗨️ Forum integration:
+  • Auto-replies to newly created threads in enabled forum channels
+  • Reads full message history for context
+  • Falls back to first message author if thread owner is missing
+  • Skips threads with no content
+  • Prompts for consent if thread starter hasn't opted in
+  • Logs all issues clearly for debugging
+- 💬 Channel integration:
+  • Replies to all new messages in enabled channels (with consent)
+  • Respects user privacy and skips users who haven't opted in
+- ✍️ Slash commands:
+  • /ask – Ask BeeBot a question (with consent)
+  • /bee_fact – Get a bee fact 🐝
+  • /bee_question – Conversation-starting question
+  • /bee_validate – A validating compliment 💛
+  • /bee_mood – Share your mood
+  • /bee_gratitude – Share something you're thankful for
+  • /bee_support – Mental health resources (US, global, LGBTQ+)
+  • /crisis – Get crisis line info by country
+  • /consent – Give BeeBot permission to process your messages
+  • /bee_help – List of available commands
+  • /bee_autoreply – Toggle auto-reply in the current channel
+  • /set_autoreply – Enable/disable auto-reply for any text/forum channel
   • /set_announcement_channel – Set announcement channel
-  • /set_version_channel – Set version update channel
-- Forum integration:
-  • Auto-responds to new threads (if auto-reply enabled on parent)
-  • Reads entire thread history for context
-  • Posts warm, validating, bee-themed response (with consent)
-- Channel message integration:
-  • Responds in designated text channels automatically (with consent)
-- Role-based access:
-  • Users must have "Announcement" role to use /bee_announcement
-- Consent reminders:
-  • If a user hasn't opted in, BeeBot will prompt them via DM or thread before responding
-- Resilient to missing permissions and channel access errors
-- Improved logging and startup summaries
+  • /set_version_channel – Set version updates channel
+- 🐞 Error handling:
+  • OpenAI and Discord exceptions are logged
+  • Thread fallback logic for missing owners
+  • DM consent requests if user hasn't opted in
+- 🌐 Invite-ready with required permissions and clean setup process
 
-🐝 Bee kind. Bee warm. BeeBot.
+🐝 BeeBot is here to buzz kindness, validate feelings, and support communities with warmth and joy.
