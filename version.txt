@@ -1,9 +1,6 @@
-Version 2.0.2
-
-🐛 Fixed duplicate code block in on_thread_create event handler
-🔧 Fixed function naming conflict (bee_fact vs bee_question)
-📝 Enhanced forum auto-reply with better error handling and logging
-⏱️ Added delay to ensure forum posts are fully created before response
-🎯 Improved message filtering to only process messages with content
-📊 Better debugging output for troubleshooting forum responses
-🚀 More robust thread handling with improved exception management
+Version 2.0.3
+✅ Added explicit /consent command
+✅ Integrated consent checks for all commands using OpenAI
+✅ Ensured auto-replies and forum replies require user consent
+✅ Updated /bee_help with Privacy Notice
+✅ Full compliance with Discord TOS and data privacy best practices
