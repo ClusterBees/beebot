@@ -1,4 +1,4 @@
-3.0.1
+Version 3.0.1
 - ✅ Full compliance with Discord Terms of Service via per-user consent system before any OpenAI processing
 - 🔐 Consent required before BeeBot uses OpenAI to respond in threads, channels, or DMs
 - 💬 All slash-command-based interface (no legacy prefixes)
