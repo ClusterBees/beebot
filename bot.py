@@ -34,6 +34,11 @@ intents.message_content = True
 intents.guilds = True
 intents.guild_messages = True
 intents.dm_messages = True
+intents.messages = True
+intents.typing = False  # Optional
+intents.message_content = True
+intents.guilds = True
+intents.message_content = True
 
 # Create bot
 bot = commands.Bot(command_prefix="!", intents=intents)
