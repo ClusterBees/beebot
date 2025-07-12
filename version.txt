@@ -1,17 +1,22 @@
 Version 3.0.1
-✅ Discord TOS compliant via per-user consent
-🔐 Consent required before OpenAI processing (threads, channels, DMs)
-💬 Slash-command interface only (no prefixes)
-🐝 BeeBot personality: validating, bee-themed, warm, educational
-🗃️ Redis-backed persistent settings for auto-reply, announcements, version channels
-📣 Announcements require "Announcement" role
-🧠 Uses GPT-3.5-turbo for validating responses
-🗨️ Forum integration: auto-replies, full context reading, consent prompts, clear logging
-💬 Channel integration: replies with consent, respects privacy
-✍️ Slash commands include:
-• /ask, /bee_fact, /bee_question, /bee_validate, /bee_mood
-• /bee_gratitude, /bee_support, /crisis, /consent, /bee_help
-• /bee_autoreply, /set_autoreply, /set_announcement_channel, /set_version_channel
-🐞 Logs errors and handles missing thread owners gracefully
-🌐 Easy invite/setup with required permissions
-🐝 BeeBot buzzes kindness, validation, and support with warmth and joy.
+
+✨ New & Improved
+✅ Slash command announcement now supports message formatting (Markdown + links + emojis)
+
+✅ Users can insert \\n to create line breaks or new paragraphs in announcements
+
+✅ Added robust debug logging for forum thread auto-replies
+
+✅ Replaced deprecated .flatten() with async generator usage when reading thread messages
+
+✅ Improved thread starter detection using fallback logic (thread.owner or first message author)
+
+🐛 Bug Fixes
+🐞 Fixed issue where /announcement did not work due to being a prefix command (!announcement)
+
+🐞 Prevented on_thread_create from silently failing when no content was found
+
+🐞 Improved error handling and visibility during OpenAI or Discord failures
+
+🔒 Consent System
+⛔ Thread replies now gracefully skip users who haven’t provided /consent, with a polite prompt

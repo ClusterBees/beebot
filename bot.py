@@ -401,26 +401,26 @@ async def on_message(message):
 @bot.event
 async def on_thread_create(thread):
     try:
-        print(f"🧵 Thread created: {thread.name} (ID: {thread.id}) in {thread.guild.name}")
+        print(f"🧵 Thread created: {thread.name} (ID: {thread.id}) in guild: {thread.guild.name}")
 
         if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
-            print(f"🔕 Thread parent is not a forum: {thread.parent}")
+            print(f"🔕 Skipped: Thread parent is not a forum (Type: {thread.parent.type})")
             return
 
         guild_id = thread.guild.id
         forum_channel_id = thread.parent.id
 
-        print(f"🔍 Checking if auto-reply is enabled for forum: {thread.parent.name} (ID: {forum_channel_id})")
+        print(f"🔍 Checking if auto-reply is enabled for: {thread.parent.name} (ID: {forum_channel_id})")
         if forum_channel_id not in auto_reply_channels.get(guild_id, set()):
             print(f"❌ Auto-reply not enabled for {thread.parent.name}")
             return
 
         await thread.join()
-        print("✅ Joined thread")
+        print("✅ Joined thread successfully")
 
         await asyncio.sleep(1)
 
-        # Collect messages
+        # Collect recent messages
         messages = []
         print("📥 Collecting thread messages...")
         async for msg in thread.history(limit=10, oldest_first=True):
@@ -432,21 +432,32 @@ async def on_thread_create(thread):
             return
 
         convo = "\n".join(messages)
-        print(f"📝 Conversation collected:\n{convo}")
+        print(f"📝 Collected conversation:\n{convo}")
 
-        thread_starter = thread.owner or (await thread.history(limit=1, oldest_first=True).flatten())[0].author
+        # Get thread starter
+        thread_starter = thread.owner
+        if not thread_starter:
+            async for msg in thread.history(limit=1, oldest_first=True):
+                thread_starter = msg.author
+                break
+
+        if not thread_starter:
+            print(f"⚠️ Unable to determine thread starter.")
+            return
+
         user_id = thread_starter.id
         user_mention = thread_starter.mention
         print(f"👤 Thread starter: {thread_starter.display_name} (ID: {user_id})")
 
         if not has_user_consented(guild_id, user_id):
-            print(f"🔒 User {user_id} has not consented.")
+            print(f"🔒 User {user_id} has not given consent.")
             await thread.send(
                 f"{user_mention} 🐝 I’d love to help, but I need your permission first.\n"
                 f"Please type `/consent` in the server. 💛"
             )
             return
 
+        # Build and send prompt to OpenAI
         prompt = (
             f"A user started a thread titled:\n"
             f"**{thread.name}**\n\n"
@@ -464,7 +475,7 @@ async def on_thread_create(thread):
 
         reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
         await thread.send(reply_text)
-        print(f"✅ Responded to thread: {thread.name}")
+        print(f"✅ Responded in thread: {thread.name}")
 
     except Exception as e:
         print(f"🐛 Error in thread handler: {e}")
