@@ -1,43 +1,17 @@
 Version 3.0.1
-- ✅ Full compliance with Discord Terms of Service via per-user consent system before any OpenAI processing
-- 🔐 Consent required before BeeBot uses OpenAI to respond in threads, channels, or DMs
-- 💬 All slash-command-based interface (no legacy prefixes)
-- 🧠 BeeBot personality: validating, bee-themed, warm, and educational — with emojis 🐝🍯🌻
-- 🗃️ Redis-backed persistent settings for:
-  • Auto-reply enabled channels (text + forum)
-  • Announcement channels
-  • Version update channels
-- 📣 Announcements require "Announcement" role
-- 🧠 Uses OpenAI's GPT-3.5-turbo to generate validating responses
-- 🗨️ Forum integration:
-  • Auto-replies to newly created threads in enabled forum channels
-  • Reads full message history for context
-  • Falls back to first message author if thread owner is missing
-  • Skips threads with no content
-  • Prompts for consent if thread starter hasn't opted in
-  • Logs all issues clearly for debugging
-- 💬 Channel integration:
-  • Replies to all new messages in enabled channels (with consent)
-  • Respects user privacy and skips users who haven't opted in
-- ✍️ Slash commands:
-  • /ask – Ask BeeBot a question (with consent)
-  • /bee_fact – Get a bee fact 🐝
-  • /bee_question – Conversation-starting question
-  • /bee_validate – A validating compliment 💛
-  • /bee_mood – Share your mood
-  • /bee_gratitude – Share something you're thankful for
-  • /bee_support – Mental health resources (US, global, LGBTQ+)
-  • /crisis – Get crisis line info by country
-  • /consent – Give BeeBot permission to process your messages
-  • /bee_help – List of available commands
-  • /bee_autoreply – Toggle auto-reply in the current channel
-  • /set_autoreply – Enable/disable auto-reply for any text/forum channel
-  • /set_announcement_channel – Set announcement channel
-  • /set_version_channel – Set version updates channel
-- 🐞 Error handling:
-  • OpenAI and Discord exceptions are logged
-  • Thread fallback logic for missing owners
-  • DM consent requests if user hasn't opted in
-- 🌐 Invite-ready with required permissions and clean setup process
-
-🐝 BeeBot is here to buzz kindness, validate feelings, and support communities with warmth and joy.
+✅ Discord TOS compliant via per-user consent
+🔐 Consent required before OpenAI processing (threads, channels, DMs)
+💬 Slash-command interface only (no prefixes)
+🐝 BeeBot personality: validating, bee-themed, warm, educational
+🗃️ Redis-backed persistent settings for auto-reply, announcements, version channels
+📣 Announcements require "Announcement" role
+🧠 Uses GPT-3.5-turbo for validating responses
+🗨️ Forum integration: auto-replies, full context reading, consent prompts, clear logging
+💬 Channel integration: replies with consent, respects privacy
+✍️ Slash commands include:
+• /ask, /bee_fact, /bee_question, /bee_validate, /bee_mood
+• /bee_gratitude, /bee_support, /crisis, /consent, /bee_help
+• /bee_autoreply, /set_autoreply, /set_announcement_channel, /set_version_channel
+🐞 Logs errors and handles missing thread owners gracefully
+🌐 Easy invite/setup with required permissions
+🐝 BeeBot buzzes kindness, validation, and support with warmth and joy.
