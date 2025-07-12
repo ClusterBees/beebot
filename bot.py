@@ -354,6 +354,28 @@ async def set_announcement_channel(interaction: discord.Interaction):
     save_settings(auto_reply_channels, announcement_channels, version_channels)
     await interaction.response.send_message(f"✅ Announcements will post in {interaction.channel.mention}")
 
+@bot.command(name="announcement")
+async def announcement(ctx, *, message: str):
+    guild_id = ctx.guild.id
+    announcement_channel_id = announcement_channels.get(guild_id)
+    announcement_role = discord.utils.get(ctx.guild.roles, name="Announcement")
+
+    if not announcement_role or announcement_role not in ctx.author.roles:
+        await ctx.send("🚫 You need the Announcement role to use this command.", delete_after=10)
+        return
+
+    if not announcement_channel_id:
+        await ctx.send("⚠️ No announcement channel set for this server.", delete_after=10)
+        return
+
+    channel = ctx.guild.get_channel(announcement_channel_id)
+    if not channel:
+        await ctx.send("⚠️ Announcement channel not found.", delete_after=10)
+        return
+
+    await channel.send(message)
+    await ctx.send(f"✅ Announcement sent to {channel.mention}", delete_after=10)
+
 @bot.event
 async def on_guild_join(guild):
     for role_name in ["Beebot", "Announcement"]:
