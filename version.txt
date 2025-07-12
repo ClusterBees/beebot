@@ -1,28 +1,18 @@
-Version 3.1.0
+Version 3.2.0
 
-🐝 Fun & Affirming Features
-✅ Added /bee_joke with bee-themed jokes loaded from bee_jokes.txt
-✅ Added /bee_name which creates nicknames from prefix and suffix files
-✅ Added /bee_match to match users with random non-bot members
-✅ Updated /buzzwords to pull short affirmations from bee_fortunes.txt
-✅ Added /bee_quiz for bee trivia, pulling from bee_quiz.txt with spoiler answers
+✨ New & Improved
+✅ Added /bee_species – Get a random bee species from a text file (no storage, new every time!) 🐝
 
-🧠 Trivia System
-✅ New loader: load_quiz_questions() for multi-line quiz parsing
-✅ Answers now display in Discord's spoiler format
+✅ Added /remind – Users can schedule reminders with time formats like 10m, 2h, 1d ⏰  
+✅ Added /list_reminders – Lists all of a user’s active reminders 📝  
+✅ Added /cancel_reminder – Cancels a reminder by its ID ❌
 
-📁 File-Based Content
-✅ All fun commands now pull from external .txt files for easy updates:
-  - bee_jokes.txt
-  - bee_name_prefixes.txt / bee_name_suffixes.txt
-  - bee_fortunes.txt (used by buzzwords)
-  - bee_quiz.txt
+✅ Reminders persist across bot restarts using Redis and auto-reschedule on boot
 
-📜 Help Command
-✅ Updated /bee_help to include all current slash commands by category
+🐛 Bug Fixes
+🐞 Improved reminder time parsing with clear limits (7 day max)
 
-🧹 Misc Cleanup
-✅ Removed unused command placeholders (e.g. /bee_poem, /bee_dance)
-✅ Buzzwords now match tone with the fortune-style affirmations
+🐞 Fixed missing species error in /bee_species when file is empty
 
-💛 As always, BeeBot stays sweet, validating, and gentle. Never judgmental.
+🔒 Privacy & Safety
+⛔ Reminder system uses ephemeral responses and private DMs for delivery when possible

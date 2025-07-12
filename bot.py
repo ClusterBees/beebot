@@ -51,6 +51,34 @@ def load_lines(filename):
             return [line.strip() for line in f if line.strip()]
     return []
 
+import time
+import uuid
+from datetime import datetime, timedelta
+
+def parse_duration(duration_str):
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    try:
+        unit = duration_str[-1]
+        amount = int(duration_str[:-1])
+        return amount * units[unit]
+    except (ValueError, KeyError):
+        return None
+
+async def schedule_reminder(guild_id, user_id, reminder_id, remind_time, message):
+    delay = remind_time - time.time()
+    if delay > 0:
+        await asyncio.sleep(delay)
+
+    try:
+        user = await bot.fetch_user(user_id)
+        if user:
+            await user.send(f"⏰ Reminder: {message}")
+    except Exception as e:
+        print(f"❌ Failed to DM reminder to user {user_id}: {e}")
+
+    # Remove after triggering
+    db.delete(f"reminder:{guild_id}:{user_id}:{reminder_id}")
+
 # Personality config
 BEEBOT_PERSONALITY = """
 You are BeeBot, a validating, kind, bee-themed support bot. You speak with compassion, warmth, and gentle encouragement.
@@ -90,6 +118,7 @@ BEE_NAME_PREFIXES = load_lines("bee_name_prefixes.txt")
 BEE_NAME_SUFFIXES = load_lines("bee_name_suffixes.txt")
 BEE_FORTUNES = load_lines("bee_fortunes.txt")
 BEE_QUIZZES = load_quiz_questions("bee_quiz.txt")
+BEE_SPECIES = load_lines("bee_species.txt")
 
 ### --- Redis-Based Settings Management ---
 
@@ -208,6 +237,69 @@ async def handle_prompt_raw(channel: discord.TextChannel, user_input: str, user_
         print(f"OpenAI Error: {e}")
 
 ### --- Slash Commands ---
+@bot.tree.command(name="remind", description="Set a reminder for yourself.")
+@app_commands.describe(time="Time like 10m, 2h, 1d", message="What should I remind you about?")
+async def remind(interaction: discord.Interaction, time: str, message: str):
+    duration = parse_duration(time)
+    if not duration or duration <= 0 or duration > 604800:  # Max: 7 days
+        await interaction.response.send_message("⚠️ Please use a valid time (like `10m`, `2h`, `1d`). Max is 7 days.", ephemeral=True)
+        return
+
+    remind_time = time.time() + duration
+    reminder_id = str(uuid.uuid4())[:8]
+    key = f"reminder:{interaction.guild.id}:{interaction.user.id}:{reminder_id}"
+
+    db.set(key, json.dumps({
+        "remind_time": remind_time,
+        "message": message
+    }))
+
+    asyncio.create_task(schedule_reminder(interaction.guild.id, interaction.user.id, reminder_id, remind_time, message))
+
+    dt = datetime.fromtimestamp(remind_time).strftime("%Y-%m-%d %H:%M:%S")
+    await interaction.response.send_message(f"✅ I’ll remind you at **{dt}**! Your reminder ID is `{reminder_id}`.", ephemeral=True)
+
+@bot.tree.command(name="list_reminders", description="List your active reminders.")
+async def list_reminders(interaction: discord.Interaction):
+    keys = list(db.scan_iter(f"reminder:{interaction.guild.id}:{interaction.user.id}:*"))
+    if not keys:
+        await interaction.response.send_message("📭 You have no active reminders.", ephemeral=True)
+        return
+
+    entries = []
+    now = time.time()
+    for key in keys:
+        reminder_id = key.split(":")[-1]
+        data = json.loads(db.get(key))
+        remaining = int(data["remind_time"] - now)
+        if remaining < 0:
+            continue
+        minutes = remaining // 60
+        entries.append(f"`{reminder_id}` – in **{minutes}m** – {data['message']}")
+
+    if not entries:
+        await interaction.response.send_message("📭 You have no active reminders.", ephemeral=True)
+    else:
+        await interaction.response.send_message("📋 Your active reminders:\n" + "\n".join(entries), ephemeral=True)
+
+@bot.tree.command(name="cancel_reminder", description="Cancel a reminder by its ID.")
+@app_commands.describe(reminder_id="The ID of the reminder to cancel.")
+async def cancel_reminder(interaction: discord.Interaction, reminder_id: str):
+    key = f"reminder:{interaction.guild.id}:{interaction.user.id}:{reminder_id}"
+    if db.delete(key):
+        await interaction.response.send_message(f"❌ Reminder `{reminder_id}` cancelled.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"⚠️ Reminder `{reminder_id}` not found.", ephemeral=True)
+
+@bot.tree.command(name="bee_species", description="Discover your inner bee species!")
+async def bee_species(interaction: discord.Interaction):
+    if not BEE_SPECIES:
+        await interaction.response.send_message("🐝 Hmm... I don’t know any bee species right now!", ephemeral=True)
+        return
+
+    species = random.choice(BEE_SPECIES)
+    await interaction.response.send_message(f"🔍 You are a **{species}**! 🐝✨")
+
 @bot.tree.command(name="bee_quiz", description="Test your bee knowledge!")
 async def bee_quiz(interaction: discord.Interaction):
     if not BEE_QUIZZES:
@@ -280,7 +372,10 @@ async def bee_help(interaction: discord.Interaction):
         "/crisis [country] – Get a crisis line\n"
         "/bee_mood [text] – Share your mood\n"
         "/bee_gratitude [text] – Share something you're grateful for\n"
-        "/consent – Grant permission for BeeBot to reply using OpenAI\n\n"
+        "/consent – Grant permission for BeeBot to reply using OpenAI\n"
+        "/remind [time] [message] – Set a personal reminder ⏰\n"
+        "/list_reminders – See your active reminders 📝\n" 
+        "/cancel_reminder [id] – Cancel a specific reminder ❌\n\n"
         "**Fun & Encouragement**\n"
         "/bee_fact – Get a fun bee fact 🐝\n"
         "/bee_question – Reflective prompt for the hive\n"
@@ -289,6 +384,7 @@ async def bee_help(interaction: discord.Interaction):
         "/bee_name – Get a fun bee-themed nickname 🎉\n"
         "/bee_match – Match with another bee buddy 🐝💛\n"
         "/bee_quiz – Test your bee knowledge 📚\n"
+        "/bee_species – Discover your inner bee species 🐝\n\n"
         "**Setup & Admin**\n"
         "/set_autoreply [channel] [on/off] – Enable or disable auto-replies\n"
         "/bee_autoreply [on/off] – Toggle auto-reply in the current channel\n"
@@ -618,6 +714,19 @@ async def on_ready():
                     await channel.send(version_msg)
                 except Exception as e:
                     print(f"❌ Couldn't post version in {guild.name}: {e}")
+    # ⏰ Reschedule all pending reminders
+    for key in db.scan_iter("reminder:*"):
+        parts = key.split(":")
+        if len(parts) != 4:
+            continue
+        guild_id, user_id, reminder_id = map(int, parts[1:])
+        try:
+            reminder_data = json.loads(db.get(key))
+            remind_time = reminder_data["remind_time"]
+            message = reminder_data["message"]
+            asyncio.create_task(schedule_reminder(guild_id, user_id, reminder_id, remind_time, message))
+        except Exception as e:
+            print(f"❌ Error rescheduling reminder {key}: {e}")
 
 # Run the bot
 bot.run(DISCORD_TOKEN)
