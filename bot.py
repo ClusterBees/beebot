@@ -301,11 +301,15 @@ async def bee_autoreply(interaction: discord.Interaction, mode: str):
     else:
         await interaction.response.send_message("❗ Use `/bee_autoreply on` or `/bee_autoreply off`", ephemeral=True)
 
-@bot.tree.command(name="set_autoreply", description="Enable or disable auto-reply for a specific channel.")
-@app_commands.describe(channel="The channel", mode="on or off")
-async def set_autoreply(interaction: discord.Interaction, channel: discord.TextChannel, mode: str):
+@bot.tree.command(name="set_autoreply", description="Enable or disable auto-reply for a specific channel (text or forum).")
+@app_commands.describe(channel="The channel (text or forum)", mode="on or off")
+async def set_autoreply(interaction: discord.Interaction, channel: discord.abc.GuildChannel, mode: str):
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    if not isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
+        await interaction.response.send_message("⚠️ Only text or forum channels are supported.", ephemeral=True)
         return
 
     guild_id = interaction.guild.id
@@ -314,7 +318,7 @@ async def set_autoreply(interaction: discord.Interaction, channel: discord.TextC
     if mode.lower() == "on":
         auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
         save_settings(auto_reply_channels, announcement_channels, version_channels)
-        await interaction.response.send_message(f"✅ Auto-reply enabled for {channel.mention}")
+        await interaction.response.send_message(f"✅ Auto-reply enabled for {channel.mention} (type: {channel.type.name})")
     elif mode.lower() == "off":
         if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
             auto_reply_channels[guild_id].remove(channel_id)
