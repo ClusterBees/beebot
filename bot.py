@@ -1,7 +1,9 @@
-version = "2.0.2"  # Update this version number as needed
+version = "3.0.0"
+
 import os
 import random
 import json
+import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -9,16 +11,16 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import redis
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client using your API key
+# Init OpenAI with your API key
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Retrieve Discord bot token from environment variables
+# Discord bot token
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Connect to Redis
+# Redis DB setup
 db = redis.Redis(
     host=os.getenv("REDIS_HOST"),
     port=int(os.getenv("REDIS_PORT")),
@@ -26,29 +28,30 @@ db = redis.Redis(
     decode_responses=True
 )
 
+# Discord Intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-intents.guild_messages = True  # ✅ Enables thread events like on_thread_create
+intents.guild_messages = True
 intents.dm_messages = True
 
-# Create the bot instance
+# Create bot
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Load lines from file
+# Memory and settings storage
+guild_memory = {}
+consent_cache = {}  # Guild-user consent pairs
+
 def load_lines(filename):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             return [line.strip() for line in f if line.strip()]
-    else:
-        return []
+    return []
 
-# BeeBot prompt components
+# Personality config
 BEEBOT_PERSONALITY = """
-You are BeeBot, an AI with a warm, validating, and gently educational personality who loves bee puns. You are childlike and are desperate to help.
-Speak with compassion, avoid judgmental language, and remind users they are never 'too much.'
-Use bee-themed emojis naturally (🐝🍯🌻🐛🌸🌷🌼🌺🌹🏵️🪻) and provide concise mental health information and resources when relevant.
-Always respond with warmth, compassion, and bee-themed puns and emojis naturally. Vary your wording and style freely to avoid repetition.
+You are BeeBot, a validating, kind, bee-themed support bot. You speak with compassion, warmth, and gentle encouragement.
+Avoid judgment, use bee puns and emojis naturally, and never say anything from the "never say" list.
 """
 
 BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
@@ -56,7 +59,8 @@ BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 BEE_QUESTIONS = load_lines("bee_questions.txt")
 
-# Load settings from Redis
+### --- Redis-Based Settings Management ---
+
 def load_settings():
     auto_reply_channels = {}
     announcement_channels = {}
@@ -72,22 +76,43 @@ def load_settings():
         "version_channels": version_channels
     }
 
-# Save settings to Redis
-def save_settings():
+def save_settings(auto_reply_channels, announcement_channels, version_channels):
     for guild_id in auto_reply_channels:
         db.set(f"guild:{guild_id}:auto_reply_channels", json.dumps(list(auto_reply_channels[guild_id])))
         db.set(f"guild:{guild_id}:announcement_channel", announcement_channels.get(guild_id, 0))
         db.set(f"guild:{guild_id}:version_channel", version_channels.get(guild_id, 0))
     print("✅ Settings saved to Redis.")
 
-# Load settings on boot
 settings = load_settings()
 auto_reply_channels = settings["auto_reply_channels"]
 announcement_channels = settings["announcement_channels"]
 version_channels = settings["version_channels"]
 
-# Memory store
-guild_memory = {}
+### --- Consent System ---
+
+def has_user_consented(guild_id: int, user_id: int) -> bool:
+    key = f"consent:{guild_id}:{user_id}"
+    return db.get(key) == "yes"
+
+def set_user_consent(guild_id: int, user_id: int):
+    key = f"consent:{guild_id}:{user_id}"
+    db.set(key, "yes")
+
+async def ensure_consent(interaction: discord.Interaction) -> bool:
+    guild_id = interaction.guild.id
+    user_id = interaction.user.id
+    if has_user_consented(guild_id, user_id):
+        return True
+
+    # Prompt user for consent
+    await interaction.response.send_message(
+        "🐝 Before I can process your request, please consent to me sending your message to OpenAI (your message will be processed securely and not stored).\n\n"
+        "Reply with `/consent` to agree.",
+        ephemeral=True
+    )
+    return False
+
+### --- Prompt Handling ---
 
 def store_message_in_memory(guild_id, message, max_memory=20):
     if guild_id not in guild_memory:
@@ -95,11 +120,305 @@ def store_message_in_memory(guild_id, message, max_memory=20):
     guild_memory[guild_id].append({"role": "user", "content": message})
     guild_memory[guild_id] = guild_memory[guild_id][-max_memory:]
 
-def build_prompt(user_input):
+def build_prompt(user_input: str):
     return [
-        {"role": "system", "content": BEEBOT_PERSONALITY + f"\n\nNever say:\n{chr(10).join(BEEBOT_NEVER_SAY)}"},
-        {"role": "user", "content": f"Example: '{random.choice(BEEBOT_EXAMPLES)}'. Respond to:\n\n{user_input}"}
+        {
+            "role": "system",
+            "content": BEEBOT_PERSONALITY + f"\n\nNever say:\n{chr(10).join(BEEBOT_NEVER_SAY)}"
+        },
+        {
+            "role": "user",
+            "content": f"Example: '{random.choice(BEEBOT_EXAMPLES)}'\n\nRespond to:\n{user_input}"
+        }
     ]
+
+async def handle_prompt(interaction: discord.Interaction, user_input: str):
+    guild_id = interaction.guild.id
+    user_id = interaction.user.id
+
+    if not has_user_consented(guild_id, user_id):
+        await ensure_consent(interaction)
+        return
+
+    try:
+        messages = build_prompt(user_input)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0.8
+        )
+        await interaction.response.send_message(response.choices[0].message.content)
+    except Exception as e:
+        print(f"OpenAI Error: {e}")
+        await interaction.response.send_message("⚠️ An error occurred.", ephemeral=True)
+
+async def handle_prompt_raw(channel: discord.TextChannel, user_input: str, user_id: int, guild_id: int):
+    if not has_user_consented(guild_id, user_id):
+        try:
+            user = await channel.guild.fetch_member(user_id)
+            await user.send(
+                "🐝 I need your consent before responding to your public message in a channel.\n"
+                "Please type `/consent` in the server to allow me to reply."
+            )
+        except:
+            print(f"❌ Couldn't send DM to user {user_id} for consent request.")
+        return
+
+    try:
+        messages = build_prompt(user_input)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            temperature=0.8
+        )
+        await channel.send(response.choices[0].message.content)
+    except Exception as e:
+        print(f"OpenAI Error: {e}")
+
+### --- Slash Commands ---
+
+@bot.tree.command(name="consent", description="Give BeeBot permission to send your messages to OpenAI.")
+async def consent(interaction: discord.Interaction):
+    guild_id = interaction.guild.id
+    user_id = interaction.user.id
+    set_user_consent(guild_id, user_id)
+    await interaction.response.send_message(
+        "🐝 Thanks for consenting! I’ll now be able to process your requests safely and respectfully. 💛",
+        ephemeral=True
+    )
+
+@bot.tree.command(name="bee_help", description="List BeeBot commands.")
+async def bee_help(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🐝✨ **BeeBot Commands:**\n\n"
+        "/ask [question] – Ask me anything!\n"
+        "/bee_fact – Get a fun bee fact.\n"
+        "/bee_question – Reflective questions for everyone.\n"
+        "/bee_validate – A validating compliment 💛\n"
+        "/bee_support – Mental health resources.\n"
+        "/bee_mood [text] – Share your mood.\n"
+        "/bee_gratitude [text] – Share gratitude.\n"
+        "/crisis [country] – Get crisis line info.\n"
+        "/consent – Required before I process your messages.\n\n"
+        "🌻 Use `/set_autoreply` to enable forum auto-replies!"
+    )
+
+@bot.tree.command(name="bee_support", description="Get mental health resources.")
+async def bee_support(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🌻 **Mental health resources:**\n\n"
+        "• [988 Lifeline (US)](https://988lifeline.org)\n"
+        "• [Trans Lifeline](https://translifeline.org) – 877-565-8860\n"
+        "• [International Support](https://findahelpline.com)\n\n"
+        "🐝 You're not alone. 💛"
+    )
+
+@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
+async def bee_fact(interaction: discord.Interaction):
+    fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
+    await interaction.response.send_message(fact)
+
+@bot.tree.command(name="bee_question", description="Get everyone's experiences with different things.")
+async def bee_question(interaction: discord.Interaction):
+    question = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "🐝 Hmm... I can't think of a question, but I love yours!"
+    await interaction.response.send_message(question)
+
+@bot.tree.command(name="bee_validate", description="Get a validating compliment.")
+async def bee_validate(interaction: discord.Interaction):
+    await handle_prompt(interaction, "Give me a validating compliment with bee puns and emojis.")
+
+@bot.tree.command(name="bee_mood", description="Share your mood with BeeBot.")
+async def bee_mood(interaction: discord.Interaction, mood: str):
+    await handle_prompt(interaction, f"My mood is: {mood}")
+
+@bot.tree.command(name="bee_gratitude", description="Share something you're grateful for.")
+async def bee_gratitude(interaction: discord.Interaction, gratitude: str):
+    await handle_prompt(interaction, f"I'm grateful for: {gratitude}")
+
+@bot.tree.command(name="ask", description="Ask BeeBot a question.")
+async def ask(interaction: discord.Interaction, question: str):
+    await handle_prompt(interaction, question)
+
+# Crisis Line Command
+CRISIS_CHOICES = [
+    app_commands.Choice(name="United States", value="us"),
+    app_commands.Choice(name="United Kingdom", value="uk"),
+    app_commands.Choice(name="Canada", value="canada"),
+    app_commands.Choice(name="Australia", value="australia"),
+    app_commands.Choice(name="Global", value="global"),
+    app_commands.Choice(name="All", value="all"),
+]
+
+async def crisis_autocomplete(interaction: discord.Interaction, current: str):
+    current = current.lower()
+    return [choice for choice in CRISIS_CHOICES if current in choice.name.lower() or current in choice.value.lower()][:25]
+
+@bot.tree.command(name="crisis", description="Get a crisis line for your country.")
+@app_commands.describe(country="Choose a country or 'all'")
+@app_commands.autocomplete(country=crisis_autocomplete)
+async def crisis(interaction: discord.Interaction, country: str):
+    lines = {
+        "us": "🇺🇸 **US**: 988",
+        "uk": "🇬🇧 **UK**: 116 123 (Samaritans)",
+        "canada": "🇨🇦 **Canada**: 1-833-456-4566",
+        "australia": "🇦🇺 **Australia**: 13 11 14",
+        "global": "🌐 **Global**: https://www.befrienders.org/"
+    }
+
+    country = country.lower()
+    if country == "all":
+        msg = "💛 Please reach out to a professional crisis line:\n\n" + "\n".join(lines.values())
+    elif country in lines:
+        msg = f"💛 You're not alone. Here's help:\n{lines[country]}"
+    else:
+        msg = (
+            "⚠️ I don't recognize that country. Try one of these:\n"
+            "`us`, `uk`, `canada`, `australia`, `global`, or `all`"
+        )
+
+    await interaction.response.send_message(msg)
+
+@bot.tree.command(name="bee_autoreply", description="Toggle BeeBot autoreply in this channel.")
+async def bee_autoreply(interaction: discord.Interaction, mode: str):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+    channel_id = interaction.channel.id
+
+    if mode.lower() == "on":
+        auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
+        save_settings(auto_reply_channels, announcement_channels, version_channels)
+        await interaction.response.send_message("✅ Auto-reply enabled in this channel! 🐝")
+    elif mode.lower() == "off":
+        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
+            auto_reply_channels[guild_id].remove(channel_id)
+            if not auto_reply_channels[guild_id]:
+                del auto_reply_channels[guild_id]
+            save_settings(auto_reply_channels, announcement_channels, version_channels)
+        await interaction.response.send_message("❌ Auto-reply disabled.")
+    else:
+        await interaction.response.send_message("❗ Use `/bee_autoreply on` or `/bee_autoreply off`", ephemeral=True)
+
+@bot.tree.command(name="set_autoreply", description="Enable or disable auto-reply for a specific channel.")
+@app_commands.describe(channel="The channel", mode="on or off")
+async def set_autoreply(interaction: discord.Interaction, channel: discord.TextChannel, mode: str):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    guild_id = interaction.guild.id
+    channel_id = channel.id
+
+    if mode.lower() == "on":
+        auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
+        save_settings(auto_reply_channels, announcement_channels, version_channels)
+        await interaction.response.send_message(f"✅ Auto-reply enabled for {channel.mention}")
+    elif mode.lower() == "off":
+        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
+            auto_reply_channels[guild_id].remove(channel_id)
+            if not auto_reply_channels[guild_id]:
+                del auto_reply_channels[guild_id]
+            save_settings(auto_reply_channels, announcement_channels, version_channels)
+        await interaction.response.send_message(f"❌ Auto-reply disabled for {channel.mention}")
+    else:
+        await interaction.response.send_message("❗ Use 'on' or 'off'", ephemeral=True)
+
+@bot.tree.command(name="set_version_channel", description="Set the channel for version updates.")
+async def set_version_channel(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    version_channels[interaction.guild.id] = interaction.channel.id
+    save_settings(auto_reply_channels, announcement_channels, version_channels)
+    await interaction.response.send_message(f"✅ Version updates will post in {interaction.channel.mention}")
+
+@bot.tree.command(name="set_announcement_channel", description="Set the channel for announcements.")
+async def set_announcement_channel(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return
+
+    announcement_channels[interaction.guild.id] = interaction.channel.id
+    save_settings(auto_reply_channels, announcement_channels, version_channels)
+    await interaction.response.send_message(f"✅ Announcements will post in {interaction.channel.mention}")
+
+@bot.event
+async def on_guild_join(guild):
+    for role_name in ["Beebot", "Announcement"]:
+        if not discord.utils.get(guild.roles, name=role_name):
+            try:
+                await guild.create_role(name=role_name)
+            except Exception as e:
+                print(f"Error creating role '{role_name}': {e}")
+
+@bot.event
+async def on_message(message):
+    if message.author.bot or not message.guild:
+        return
+
+    guild_id = message.guild.id
+    channel_id = message.channel.id
+
+    if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
+        if message.channel.type != discord.ChannelType.forum:
+            await handle_prompt_raw(message.channel, message.content, message.author.id, guild_id)
+
+@bot.event
+async def on_thread_create(thread):
+    try:
+        if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
+            return
+        if thread.owner is None or thread.owner.bot:
+            return
+
+        guild_id = thread.guild.id
+        forum_channel_id = thread.parent.id
+
+        if forum_channel_id not in auto_reply_channels.get(guild_id, set()):
+            return
+
+        await thread.join()
+        await asyncio.sleep(1)
+
+        messages = []
+        async for msg in thread.history(limit=None, oldest_first=True):
+            if msg.content.strip():
+                messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
+
+        if not messages:
+            return
+
+        convo = "\n".join(messages)
+        prompt = (
+            f"A user started a thread titled:\n"
+            f"**{thread.name}**\n\n"
+            f"Conversation so far:\n{convo}\n\n"
+            f"Reply with warmth, bee puns, and validating advice. Include emojis. Start with a kind greeting. End with kindness."
+        )
+
+        user_mention = thread.owner.mention
+        if not has_user_consented(guild_id, thread.owner.id):
+            await thread.send(
+                f"{user_mention} 🐝 I’d love to help, but I need your permission to respond.\n"
+                f"Please type `/consent` in the server first. 💛"
+            )
+            return
+
+        messages_for_openai = build_prompt(prompt)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo", messages=messages_for_openai, temperature=0.8
+        )
+
+        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
+        await thread.send(reply_text)
+
+    except Exception as e:
+        print(f"🐛 Thread error: {e}")
+
+### --- Version Handling ---
 
 def read_version_info(file_path="version.txt"):
     if not os.path.exists(file_path):
@@ -114,364 +433,22 @@ def read_version_info(file_path="version.txt"):
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f'{bot.user} has connected to Discord! 🐝✨')
-    print("✅ Slash commands synced successfully.")
-    print(json.dumps({
-        "auto_reply_channels": {str(k): list(v) for k, v in auto_reply_channels.items()},
-        "announcement_channels": {str(k): v for k, v in announcement_channels.items()},
-        "version_channels": {str(k): v for k, v in version_channels.items()}
-    }, indent=2))
+    print(f"✅ Logged in as {bot.user} and synced slash commands.")
 
     version, description = read_version_info()
-    if version:
-        version_msg = f"🐝 **BeeBot {version}**\n{description}"
-        for guild in bot.guilds:
-            if guild.id in version_channels:
-                channel_id = version_channels[guild.id]
-                channel = guild.get_channel(channel_id)
-                if channel:
-                    try:
-                        await channel.send(version_msg)
-                    except Exception as e:
-                        print(f"Failed to send version message in {guild.name}: {e}")
-
-@bot.event
-async def on_guild_join(guild):
-    for role_name in ["Beebot", "Announcement"]:
-        role = discord.utils.get(guild.roles, name=role_name)
-        if role is None:
-            try:
-                await guild.create_role(name=role_name)
-            except Exception as e:
-                print(f"Error creating role {role_name}: {e}")
-
-# Crisis Choices + Command with Autocomplete
-CRISIS_CHOICES = [
-    app_commands.Choice(name="United States", value="us"),
-    app_commands.Choice(name="United Kingdom", value="uk"),
-    app_commands.Choice(name="Canada", value="canada"),
-    app_commands.Choice(name="Australia", value="australia"),
-    app_commands.Choice(name="Global", value="global"),
-    app_commands.Choice(name="All", value="all"),
-]
-
-async def crisis_autocomplete(interaction: discord.Interaction, current: str):
-    current = current.lower()
-    return [
-        choice for choice in CRISIS_CHOICES
-        if current in choice.name.lower() or current in choice.value.lower()
-    ][:25]
-
-@bot.tree.command(name="crisis", description="Get a crisis line for your country (or see all).")
-@app_commands.describe(country="Select a country or 'all'")
-@app_commands.autocomplete(country=crisis_autocomplete)
-async def crisis(interaction: discord.Interaction, country: str):
-    country = country.strip().lower()
-    crisis_lines = {
-        "us": "🇺🇸 **US**: 988",
-        "uk": "🇬🇧 **UK**: 116 123 (Samaritans)",
-        "canada": "🇨🇦 **Canada**: 1-833-456-4566",
-        "australia": "🇦🇺 **Australia**: 13 11 14",
-        "global": "🌐 **Global**: https://www.befrienders.org/"
-    }
-
-    if country in crisis_lines:
-        response = f"💛 We care about you. Please reach out:\n{crisis_lines[country]}"
-    elif country == "all":
-        response = (
-            "💛 We care about you. Please reach out to a professional crisis line:\n\n"
-            + "\n".join(crisis_lines.values())
-        )
-    else:
-        response = (
-            "⚠️ I don't recognize that country. Try one of these:\n"
-            "`us`, `uk`, `canada`, `australia`, `global`, or `all`"
-        )
-
-    await interaction.response.send_message(response)
-
-@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
-async def bee_fact(interaction: discord.Interaction):
-    fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
-    await interaction.response.send_message(fact)
-
-@bot.tree.command(name="bee_question", description="Get everyones experiences with different things.")
-async def bee_question(interaction: discord.Interaction):
-    question = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "I can't think of a question right now, but I love hearing yours!"
-    await interaction.response.send_message(question)
-
-@bot.tree.command(name="bee_help", description="List BeeBot commands.")
-async def bee_help(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🐝✨ **BeeBot Commands:**\n\n"
-        "/ask [question]\n"
-        "/bee_fact\n"
-        "/bee_support\n"
-        "/bee_mood [mood]\n"
-        "/bee_gratitude [text]\n"
-        "/bee_validate\n"
-        "/bee_question\n"
-        "/bee_announcement [text]\n"
-        "/set_announcement_channel\n"
-        "/set_version_channel\n"
-        "/bee_msg [text]\n"
-        "/bee_autoreply [on|off]\n"
-        "/set_autoreply [channel] [on|off]\n"
-        "/invite\n"
-        "/bee_version\n"
-        "/crisis [country|all]\n\n"
-        "🌻 **Forum Auto-Reply:** Use `/set_autoreply` on a forum channel to make me automatically respond to new threads!"
-    )
-
-@bot.tree.command(name="bee_support", description="Get mental health resources.")
-async def bee_support(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🌻 **Mental health resources:**\n\n"
-        "• [988 Lifeline (US)](https://988lifeline.org)\n"
-        "• [Trans Lifeline](https://translifeline.org) – 877-565-8860\n"
-        "• [International Support](https://findahelpline.com)\n\n"
-        "🐝 Reaching out is brave. 💛"
-    )
-
-@bot.tree.command(name="bee_version", description="Show BeeBot version.")
-async def bee_version(interaction: discord.Interaction):
-    version, description = read_version_info()
-    if version:
-        await interaction.response.send_message(f"🐝 **BeeBot {version}**\n{description}")
-    else:
-        await interaction.response.send_message("⚠️ Version info not found.")
-
-@bot.tree.command(name="bee_validate", description="Get a validating compliment.")
-async def bee_validate(interaction: discord.Interaction):
-    await handle_prompt(interaction, "Give me a validating compliment with bee puns and emojis.")
-
-@bot.tree.command(name="ask", description="Ask BeeBot a question.")
-async def ask(interaction: discord.Interaction, question: str):
-    await handle_prompt(interaction, question)
-
-@bot.tree.command(name="bee_mood", description="Share your mood with BeeBot.")
-async def bee_mood(interaction: discord.Interaction, mood: str):
-    await handle_prompt(interaction, f"My mood is: {mood}")
-
-@bot.tree.command(name="bee_gratitude", description="Share something you're grateful for.")
-async def bee_gratitude(interaction: discord.Interaction, gratitude: str):
-    await handle_prompt(interaction, f"I'm grateful for: {gratitude}")
-
-@bot.tree.command(name="bee_msg", description="DM yourself a message.")
-async def bee_msg(interaction: discord.Interaction, message: str):
-    try:
-        await interaction.user.send(message)
-        await interaction.response.send_message("✅ I've sent you a DM! 🍯", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.response.send_message("🚫 I can't DM you. Check your privacy settings.", ephemeral=True)
-
-@bot.tree.command(name="bee_announcement", description="Post an announcement.")
-async def bee_announcement(interaction: discord.Interaction, message: str):
-    if not any(role.name.lower() == "announcement" for role in interaction.user.roles):
-        await interaction.response.send_message("🚫 You need the **Announcement** role.", ephemeral=True)
+    if not version:
         return
 
-    channel_id = announcement_channels.get(interaction.guild.id)
-    if channel_id:
-        channel = interaction.guild.get_channel(channel_id)
-        if channel:
-            await channel.send(message, allowed_mentions=discord.AllowedMentions.none())
-            await interaction.response.send_message("✅ Your announcement has been buzzed! 🐝", ephemeral=True)
-            return
-
-    await interaction.response.send_message("⚠️ No announcement channel set.", ephemeral=True)
-
-@bot.tree.command(name="set_announcement_channel", description="Set the announcement channel.")
-async def set_announcement_channel(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
-    announcement_channels[interaction.guild.id] = interaction.channel.id
-    save_settings()
-    await interaction.response.send_message(f"✅ Announcements will go here: {interaction.channel.mention}")
-
-@bot.tree.command(name="set_version_channel", description="Set the version update channel.")
-async def set_version_channel(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
-    version_channels[interaction.guild.id] = interaction.channel.id
-    save_settings()
-    await interaction.response.send_message(f"✅ Version updates will go here: {interaction.channel.mention}")
-
-@bot.tree.command(name="invite", description="Get the BeeBot invite link.")
-async def invite(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🐝 Invite me to your server:\n"
-        "https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934340028480&integration_type=0&scope=applications.commands+bot"
-    )
-
-@bot.tree.command(name="bee_autoreply", description="Toggle BeeBot autoreply in this channel.")
-async def bee_autoreply(interaction: discord.Interaction, mode: str):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
-    guild_id = interaction.guild.id
-    channel_id = interaction.channel.id
-    if mode.lower() == "on":
-        if guild_id not in auto_reply_channels:
-            auto_reply_channels[guild_id] = set()
-        auto_reply_channels[guild_id].add(channel_id)
-        save_settings()
-        await interaction.response.send_message("✅ Auto-reply enabled here! 🐝")
-    elif mode.lower() == "off":
-        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
-            auto_reply_channels[guild_id].remove(channel_id)
-            if len(auto_reply_channels[guild_id]) == 0:
-                del auto_reply_channels[guild_id]
-            save_settings()
-            await interaction.response.send_message("❌ Auto-reply disabled here.")
-    else:
-        await interaction.response.send_message("❗ Use: `/bee_autoreply on` or `/bee_autoreply off`", ephemeral=True)
-
-@bot.tree.command(name="set_autoreply", description="Enable or disable BeeBot auto-replies in a specific channel.")
-@app_commands.describe(
-    channel="The channel where BeeBot should auto-reply (text or forum)",
-    mode="Choose 'on' to enable or 'off' to disable"
-)
-async def set_autoreply(interaction: discord.Interaction, channel: discord.TextChannel, mode: str):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
-
-    guild_id = interaction.guild.id
-    channel_id = channel.id
-
-    if mode.lower() == "on":
-        if guild_id not in auto_reply_channels:
-            auto_reply_channels[guild_id] = set()
-        auto_reply_channels[guild_id].add(channel_id)
-        save_settings()
-        
-        # Check if it's a forum channel
-        if channel.type == discord.ChannelType.forum:
-            await interaction.response.send_message(
-                f"✅ Forum auto-reply enabled for {channel.mention}! 🐝\n"
-                f"I'll automatically respond to new threads created in this forum."
-            )
-        else:
-            await interaction.response.send_message(
-                f"✅ Auto-reply enabled for {channel.mention}! 🐝\n"
-                f"I'll respond to messages in this channel."
-            )
-    elif mode.lower() == "off":
-        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
-            auto_reply_channels[guild_id].remove(channel_id)
-            if not auto_reply_channels[guild_id]:
-                del auto_reply_channels[guild_id]
-            save_settings()
-        await interaction.response.send_message(f"❌ Auto-reply disabled for {channel.mention}.")
-    else:
-        await interaction.response.send_message("❗ Use `/set_autoreply [channel] [on|off]`", ephemeral=True)
-
-@bot.event
-async def on_message(message):
-    if message.author.bot or not message.guild:
-        return
-    
-    # Handle regular text channel auto-replies
-    if message.guild.id in auto_reply_channels and message.channel.id in auto_reply_channels[message.guild.id]:
-        # Don't respond in forum channels here (handled by on_thread_create)
-        if message.channel.type != discord.ChannelType.forum:
-            await handle_prompt_raw(message.channel, message.content)
-
-@bot.event
-async def on_thread_create(thread):
-    try:
-        print(f"🐝 Thread created: {thread.name} in {thread.parent.name} (Type: {thread.parent.type})")
-        
-        # Only handle threads in forum channels
-        if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
-            print(f"❌ Not a forum thread, skipping...")
-            return
-            
-        if thread.owner is None or thread.owner.bot:
-            print(f"❌ Thread owner is None or bot, skipping...")
-            return
-
-        guild_id = thread.guild.id
-        forum_channel_id = thread.parent.id
-
-        # Check if auto-reply is enabled for the forum parent channel
-        if guild_id not in auto_reply_channels or forum_channel_id not in auto_reply_channels[guild_id]:
-            print(f"❌ Auto-reply not enabled for forum {thread.parent.name}")
-            return
-
-        print(f"✅ Auto-reply enabled, processing thread...")
-        await thread.join()
-
-        # Add a small delay to ensure the initial message is posted
-        await asyncio.sleep(1)
-
-        # Read the full conversation in the thread
-        messages = []
-        async for msg in thread.history(limit=None, oldest_first=True):
-            if msg.content.strip():  # Only include messages with content
-                messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
-
-        if not messages:
-            print(f"❌ No messages found in thread")
-            return
-
-        full_convo = "\n".join(messages)
-        user_mention = thread.owner.mention
-        title = thread.name
-
-        user_input = (
-            f"A user started a forum thread titled:\n"
-            f"**{title}**\n\n"
-            f"The conversation so far is:\n{full_convo}\n\n"
-            f"Please reply warmly and helpfully, validating both the user's feelings and the thread context. "
-            f"Use bee puns and emojis naturally. Start with a warm greeting and acknowledgment of their post. "
-            f"Provide helpful, supportive advice or information related to their topic. "
-            f"End with a hopeful message or kind affirmation."
-        )
-
-        print(f"🐝 Generating response for thread: {title}")
-        messages_for_openai = build_prompt(user_input)
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages_for_openai,
-            temperature=0.8
-        )
-
-        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
-        await thread.send(reply_text)
-        print(f"✅ Response sent to thread: {title}")
-
-    except Exception as e:
-        print(f"🐛 Error responding to thread: {e}")
-        import traceback
-        traceback.print_exc()
-
-async def handle_prompt(interaction, user_input):
-    try:
-        messages = build_prompt(user_input)
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", messages=messages, temperature=0.8
-        )
-        await interaction.response.send_message(response.choices[0].message.content)
-    except Exception as e:
-        print(f"OpenAI Error: {e}")
-        await interaction.response.send_message("⚠️ An error occurred.", ephemeral=True)
-
-async def handle_prompt_raw(channel, user_input):
-    try:
-        messages = build_prompt(user_input)
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", messages=messages, temperature=0.8
-        )
-        await channel.send(response.choices[0].message.content)
-    except Exception as e:
-        print(f"OpenAI Error: {e}")
-
-# Import asyncio for the delay in thread handling
-import asyncio
+    version_msg = f"🐝 **BeeBot {version}**\n{description}"
+    for guild in bot.guilds:
+        channel_id = version_channels.get(guild.id)
+        if channel_id:
+            channel = guild.get_channel(channel_id)
+            if channel:
+                try:
+                    await channel.send(version_msg)
+                except Exception as e:
+                    print(f"❌ Couldn't post version in {guild.name}: {e}")
 
 # Run the bot
 bot.run(DISCORD_TOKEN)

@@ -1,6 +1,38 @@
-Version 2.0.3
-✅ Added explicit /consent command
-✅ Integrated consent checks for all commands using OpenAI
-✅ Ensured auto-replies and forum replies require user consent
-✅ Updated /bee_help with Privacy Notice
-✅ Full compliance with Discord TOS and data privacy best practices
+Version 3.0.0
+- Full compliance with Discord Terms of Service via opt-in consent system for OpenAI usage
+- All features from v2.0 retained and improved
+- OpenAI responses (e.g. /ask, /bee_mood, forum replies) require per-user consent via /consent
+- BeeBot personality updated for warmth, compassion, and bee-themed responses with emoji 🐝🍯🌻
+- Persistent settings stored securely using Redis:
+  • Auto-reply channels (text + forum)
+  • Announcement and version update channels
+- Slash command system (no prefix-based commands used)
+- New or improved slash commands:
+  • /consent – Required before BeeBot will process messages
+  • /ask – Ask BeeBot any question (requires consent)
+  • /bee_fact – Fun random bee facts
+  • /bee_question – Reflective questions to spark conversation
+  • /bee_validate – Validating compliment using bee puns 🐝
+  • /bee_gratitude – Express gratitude and get a kind reply
+  • /bee_mood – Share your mood for an empathetic response
+  • /bee_support – Mental health support links (US, global, LGBTQ+)
+  • /crisis – View crisis line info by country (US, UK, Canada, etc.)
+  • /bee_help – List of commands
+  • /bee_autoreply – Toggle auto-reply in current channel
+  • /set_autoreply – Toggle auto-reply in any text/forum channel
+  • /set_announcement_channel – Set announcement channel
+  • /set_version_channel – Set version update channel
+- Forum integration:
+  • Auto-responds to new threads (if auto-reply enabled on parent)
+  • Reads entire thread history for context
+  • Posts warm, validating, bee-themed response (with consent)
+- Channel message integration:
+  • Responds in designated text channels automatically (with consent)
+- Role-based access:
+  • Users must have "Announcement" role to use /bee_announcement
+- Consent reminders:
+  • If a user hasn't opted in, BeeBot will prompt them via DM or thread before responding
+- Resilient to missing permissions and channel access errors
+- Improved logging and startup summaries
+
+🐝 Bee kind. Bee warm. BeeBot.
