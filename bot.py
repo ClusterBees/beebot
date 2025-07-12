@@ -472,7 +472,16 @@ async def announcement(interaction: discord.Interaction, message: str):
         await interaction.response.send_message("⚠️ Announcement channel not found.", ephemeral=True)
         return
 
-    await channel.send(message)
+    # Create an aesthetically pleasing embed
+    embed = discord.Embed(
+        title="📢 New Announcement",
+        description=message,
+        color=discord.Color.gold(),
+        timestamp=discord.utils.utcnow()
+    )
+    embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
+
+    await channel.send(embed=embed)
     await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}", ephemeral=True)
 
 @bot.event
