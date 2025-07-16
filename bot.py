@@ -7,7 +7,7 @@ from discord import app_commands
 import openai
 from dotenv import load_dotenv
 import redis
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import uuid
 import json
