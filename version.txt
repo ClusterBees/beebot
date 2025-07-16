@@ -1,18 +1,34 @@
-Version 3.2.0
+🐝 BeeBot Version 4.0.0 – July 16, 2025
 
-✨ New & Improved
-✅ Added /bee_species – Get a random bee species from a text file (no storage, new every time!) 🐝
+✅ Major Features Added
+-----------------------
+- Reminders System:
+  • /remind — Set reminders with time formats like 10m, 2h, 1d
+  • /list_reminders — View your active reminders
+  • /cancel_reminder — Cancel reminders using their ID
+  • Reminders are persistent and automatically reschedule on bot startup
 
-✅ Added /remind – Users can schedule reminders with time formats like 10m, 2h, 1d ⏰  
-✅ Added /list_reminders – Lists all of a user’s active reminders 📝  
-✅ Added /cancel_reminder – Cancels a reminder by its ID ❌
+- Consent Management:
+  • /consent_set — Grant, revoke, or view info about consent
+  • Integrated full privacy policy via `/consent_set option: Info`
 
-✅ Reminders persist across bot restarts using Redis and auto-reschedule on boot
+- Auto-Reply & Channel Controls:
+  • /set_autoreply — Enable or disable auto-replies per channel
+  • /set_version_channel — Designate a channel to receive version updates
+  • /set_announcement_channel — Designate a channel to receive announcements
 
-🐛 Bug Fixes
-🐞 Improved reminder time parsing with clear limits (7 day max)
+🔐 Privacy Enhancements
+------------------------
+- Full BeeBot Privacy Policy included:
+  • BeeBot will NEVER sell your data
+  • BeeBot will NEVER use your data for advertising or marketing
+  • Only stores necessary info to power features (e.g. reminders, consent, settings)
+  • Policy shown via `/consent_set` > Info
 
-🐞 Fixed missing species error in /bee_species when file is empty
-
-🔒 Privacy & Safety
-⛔ Reminder system uses ephemeral responses and private DMs for delivery when possible
+🎉 Other Improvements
+----------------------
+- Expanded slash commands for:
+  • Bee names, species, facts, jokes, fortunes, validation, quizzes
+  • /ask — Chat directly with BeeBot using OpenAI
+- Improved Redis-backed persistence for settings and user preferences
+- More structured, contextual OpenAI responses using GPT-3.5 Turbo
