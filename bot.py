@@ -1,23 +1,20 @@
-version = "3.1.0"
-
 import os
 import random
-import json
 import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 import redis
+from datetime import datetime, timedelta
+import time
+import uuid
+import json
 
 # Load environment variables
 load_dotenv()
-
-# Init OpenAI with your API key
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Discord bot token
+openai.api_key = os.getenv("OPENAI_API_KEY")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis DB setup
@@ -28,88 +25,66 @@ db = redis.Redis(
     decode_responses=True
 )
 
-# Discord Intents
+AUTO_REPLY_CHANNELS_KEY = "global:auto_reply_channels"
+UNIVERSAL_CONSENT_KEY = "global:universal_consent"
+
+# Intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.guild_messages = True
 intents.dm_messages = True
-intents.messages = True
-intents.typing = False  # Optional
-intents.message_content = True
 
-# Create bot
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Memory and settings storage
-guild_memory = {}
-consent_cache = {}  # Guild-user consent pairs
+# Duration parsing
+def parse_duration(duration_str: str) -> int:
+    units = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
+    duration_str = duration_str.strip().lower()
+    if duration_str.isdigit():
+        return int(duration_str)
+    unit = duration_str[-1]
+    value = duration_str[:-1]
+    if unit in units and value.isdigit():
+        return int(value) * units[unit]
+    raise ValueError("Invalid duration format")
 
+# Utility functions
+def enable_auto_reply(channel_id: int):
+    db.sadd(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
+
+def disable_auto_reply(channel_id: int):
+    db.srem(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
+
+def is_auto_reply_enabled(channel_id: int) -> bool:
+    return db.sismember(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
+
+def grant_universal_consent(user_id: int):
+    db.sadd(UNIVERSAL_CONSENT_KEY, str(user_id))
+
+def revoke_universal_consent(user_id: int):
+    db.srem(UNIVERSAL_CONSENT_KEY, str(user_id))
+
+def has_universal_consent(user_id: int) -> bool:
+    return db.sismember(UNIVERSAL_CONSENT_KEY, str(user_id))
+
+# Load content files
 def load_lines(filename):
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             return [line.strip() for line in f if line.strip()]
     return []
 
-import time
-import uuid
-from datetime import datetime, timedelta
-
-def parse_duration(duration_str):
-    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-    try:
-        unit = duration_str[-1]
-        amount = int(duration_str[:-1])
-        return amount * units[unit]
-    except (ValueError, KeyError):
-        return None
-
-async def schedule_reminder(guild_id, user_id, reminder_id, remind_time, message):
-    delay = remind_time - time.time()
-    if delay > 0:
-        await asyncio.sleep(delay)
-
-    try:
-        user = await bot.fetch_user(user_id)
-        if user:
-            await user.send(f"⏰ Reminder: {message}")
-    except Exception as e:
-        print(f"❌ Failed to DM reminder to user {user_id}: {e}")
-
-    # Remove after triggering
-    db.delete(f"reminder:{guild_id}:{user_id}:{reminder_id}")
-
-# Personality config
-BEEBOT_PERSONALITY = """
-You are BeeBot, a validating, kind, bee-themed support bot. You speak with compassion, warmth, and gentle encouragement.
-Avoid judgment, use bee puns and emojis naturally, and never say anything from the "never say" list.
-"""
 def load_quiz_questions(filename):
     questions = []
-    if not os.path.exists(filename):
-        return questions
-
-    with open(filename, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()]
-
-    for i in range(0, len(lines), 5):
-        if i + 4 <= len(lines):
-            question_line = lines[i]
-            a = lines[i + 1]
-            b = lines[i + 2]
-            c = lines[i + 3]
-            answer_line = lines[i + 4]
-
-            if question_line.startswith("QUESTION:") and answer_line.startswith("ANSWER:"):
-                questions.append({
-                    "question": question_line[9:].strip(),
-                    "options": [a, b, c],
-                    "answer": answer_line[7:].strip()
-                })
-
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
+            for i in range(0, len(lines) - 1, 2):
+                questions.append({"question": lines[i], "answer": lines[i+1], "options": []})
     return questions
 
-BEEBOT_EXAMPLES = load_lines("beebot_examples.txt")
+BEE_PERSONALITY = open("bee_personality.txt", encoding="utf-8").read()
 BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
 BEE_FACTS = load_lines("bee_facts.txt")
 BEE_QUESTIONS = load_lines("bee_questions.txt")
@@ -120,142 +95,151 @@ BEE_FORTUNES = load_lines("bee_fortunes.txt")
 BEE_QUIZZES = load_quiz_questions("bee_quiz.txt")
 BEE_SPECIES = load_lines("bee_species.txt")
 
-### --- Redis-Based Settings Management ---
-
-def load_settings():
-    auto_reply_channels = {}
-    announcement_channels = {}
-    version_channels = {}
-    for key in db.scan_iter("guild:*:announcement_channel"):
-        guild_id = int(key.split(":")[1])
-        auto_reply_channels[guild_id] = set(json.loads(db.get(f"guild:{guild_id}:auto_reply_channels") or "[]"))
-        announcement_channels[guild_id] = int(db.get(f"guild:{guild_id}:announcement_channel") or 0)
-        version_channels[guild_id] = int(db.get(f"guild:{guild_id}:version_channel") or 0)
-    return {
-        "auto_reply_channels": auto_reply_channels,
-        "announcement_channels": announcement_channels,
-        "version_channels": version_channels
-    }
-
-def save_settings(auto_reply_channels, announcement_channels, version_channels):
-    for guild_id in auto_reply_channels:
-        db.set(f"guild:{guild_id}:auto_reply_channels", json.dumps(list(auto_reply_channels[guild_id])))
-        db.set(f"guild:{guild_id}:announcement_channel", announcement_channels.get(guild_id, 0))
-        db.set(f"guild:{guild_id}:version_channel", version_channels.get(guild_id, 0))
-    print("✅ Settings saved to Redis.")
-
-settings = load_settings()
-auto_reply_channels = settings["auto_reply_channels"]
-announcement_channels = settings["announcement_channels"]
-version_channels = settings["version_channels"]
-
-### --- Consent System ---
-
-def has_user_consented(guild_id: int, user_id: int) -> bool:
-    key = f"consent:{guild_id}:{user_id}"
-    return db.get(key) == "yes"
-
-def set_user_consent(guild_id: int, user_id: int):
-    key = f"consent:{guild_id}:{user_id}"
-    db.set(key, "yes")
-
-async def ensure_consent(interaction: discord.Interaction) -> bool:
-    guild_id = interaction.guild.id
-    user_id = interaction.user.id
-    if has_user_consented(guild_id, user_id):
-        return True
-
-    # Prompt user for consent
-    await interaction.response.send_message(
-        "🐝 Before I can process your request, please consent to me sending your message to OpenAI (your message will be processed securely and not stored).\n\n"
-        "Reply with `/consent` to agree.",
-        ephemeral=True
-    )
-    return False
-
-### --- Prompt Handling ---
-
-def store_message_in_memory(guild_id, message, max_memory=20):
-    if guild_id not in guild_memory:
-        guild_memory[guild_id] = []
-    guild_memory[guild_id].append({"role": "user", "content": message})
-    guild_memory[guild_id] = guild_memory[guild_id][-max_memory:]
-
-def build_prompt(user_input: str):
+# AI response
+def format_prompt(user_input):
     return [
-        {
-            "role": "system",
-            "content": BEEBOT_PERSONALITY + f"\n\nNever say:\n{chr(10).join(BEEBOT_NEVER_SAY)}"
-        },
-        {
-            "role": "user",
-            "content": f"Example: '{random.choice(BEEBOT_EXAMPLES)}'\n\nRespond to:\n{user_input}"
-        }
+        {"role": "system", "content": BEE_PERSONALITY},
+        {"role": "user", "content": user_input or "Say something fun as Beebot!"}
     ]
 
-async def handle_prompt(interaction: discord.Interaction, user_input: str):
-    guild_id = interaction.guild.id
-    user_id = interaction.user.id
-
-    if not has_user_consented(guild_id, user_id):
-        await ensure_consent(interaction)
-        return
-
+async def generate_bee_response(user_input: str) -> str:
     try:
-        messages = build_prompt(user_input)
-        response = openai_client.chat.completions.create(
+        completion = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            messages=messages,
+            messages=format_prompt(user_input),
+            max_tokens=100,
             temperature=0.8
         )
-        await interaction.response.send_message(response.choices[0].message.content)
-    except Exception as e:
-        print(f"OpenAI Error: {e}")
-        await interaction.response.send_message("⚠️ An error occurred.", ephemeral=True)
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        return "🐝 Buzz buzz! I'm having trouble thinking right now... try again later!"
 
-async def handle_prompt_raw(channel: discord.TextChannel, user_input: str, user_id: int, guild_id: int):
-    if not has_user_consented(guild_id, user_id):
+# Ready
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"✅ Logged in as {bot.user} and synced slash commands.")
+    for key in db.scan_iter("reminder:*"):
+        parts = key.split(":")
+        if len(parts) == 4:
+            try:
+                data = json.loads(db.get(key))
+                asyncio.create_task(schedule_reminder(
+                    int(parts[1]), int(parts[2]), parts[3], data['remind_time'], data['message']
+                ))
+            except Exception as e:
+                print(f"❌ Failed to reschedule {key}: {e}")
+
+# Message listener
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if isinstance(message.channel, discord.Thread) or (has_universal_consent(message.author.id) and is_auto_reply_enabled(message.channel.id)):
+        response = await generate_bee_response(message.content)
+        await message.channel.send(response)
+    elif message.content.strip().lower() in ["/consent", "/consent_set"]:
+        return
+    else:
+        await message.channel.send(
+            "👋 To chat with me, use `/consent_set` and turn it **On**."
+        )
+
+# Slash commands
+@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
+async def bee_fact(interaction: discord.Interaction):
+    fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
+    await interaction.response.send_message(fact)
+
+@bot.tree.command(name="bee_question", description="Get a bee-related question to ponder!")
+async def bee_question(interaction: discord.Interaction):
+    question = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "🐝 Hmm... no questions right now!"
+    await interaction.response.send_message(question)
+
+@bot.tree.command(name="bee_joke", description="Get a fun bee-themed joke!")
+async def bee_joke(interaction: discord.Interaction):
+    joke = random.choice(BEE_JOKES) if BEE_JOKES else "🐝 Hmm... I couldn’t think of a joke!"
+    await interaction.response.send_message(joke)
+
+@bot.tree.command(name="bee_name", description="Get a cute bee-themed nickname!")
+async def bee_name(interaction: discord.Interaction):
+    if not BEE_NAME_PREFIXES or not BEE_NAME_SUFFIXES:
+        await interaction.response.send_message("🐝 Hmm... I can't come up with a bee name!", ephemeral=True)
+        return
+    name = random.choice(BEE_NAME_PREFIXES) + random.choice(BEE_NAME_SUFFIXES)
+    await interaction.response.send_message(f"🐝 Your bee name is: **{name}**!")
+
+@bot.tree.command(name="bee_species", description="Discover your inner bee species!")
+async def bee_species(interaction: discord.Interaction):
+    if not BEE_SPECIES:
+        await interaction.response.send_message("🐝 Hmm... I don’t know any bee species right now!", ephemeral=True)
+        return
+    species = random.choice(BEE_SPECIES)
+    await interaction.response.send_message(f"🔍 You are a **{species}**! 🐝✨")
+
+@bot.tree.command(name="fortune", description="Get some validating buzzword messages for your day!")
+async def fortune(interaction: discord.Interaction):
+    if not BEE_FORTUNES:
+        await interaction.response.send_message("🐝 Hmm... I can’t think of any fortunes right now!", ephemeral=True)
+        return
+    selection = random.sample(BEE_FORTUNES, min(4, len(BEE_FORTUNES)))
+    response = "🌼 Your fortunes today are:\n" + "\n".join(f"*{line}*" for line in selection)
+    await interaction.response.send_message(response)
+
+@bot.tree.command(name="bee_quiz", description="Test your bee knowledge!")
+async def bee_quiz(interaction: discord.Interaction):
+    if not BEE_QUIZZES:
+        await interaction.response.send_message("🐝 Hmm... I don't have any quizzes right now.", ephemeral=True)
+        return
+    q = random.choice(BEE_QUIZZES)
+    formatted_options = "\n".join(q.get("options", []))
+    await interaction.response.send_message(
+        f"🧠 **{q['question']}**\n\n{formatted_options}\n\n*(Answer: {q['answer']})*"
+    )
+
+@bot.tree.command(name="ask", description="Ask BeeBot a question.")
+async def ask(interaction: discord.Interaction, question: str):
+    response = await generate_bee_response(question)
+    await interaction.response.send_message(response)
+
+@bot.tree.command(name="bee_validate", description="Get a validating compliment.")
+async def bee_validate(interaction: discord.Interaction):
+    response = await generate_bee_response("Give me a validating compliment with bee puns and emojis.")
+    await interaction.response.send_message(response)
+
+...
+
+# === Reminder Commands ===
+
+async def schedule_reminder(guild_id, user_id, reminder_id, remind_time, message):
+    now = time.time()
+    delay = remind_time - now
+    if delay > 0:
+        await asyncio.sleep(delay)
+    key = f"reminder:{guild_id}:{user_id}:{reminder_id}"
+    user = await bot.fetch_user(user_id)
+    if user:
         try:
-            user = await channel.guild.fetch_member(user_id)
-            await user.send(
-                "🐝 I need your consent before responding to your public message in a channel.\n"
-                "Please type `/consent` in the server to allow me to reply."
-            )
-        except:
-            print(f"❌ Couldn't send DM to user {user_id} for consent request.")
-        return
+            await user.send(f"⏰ Reminder: {message}")
+            db.delete(key)
+        except Exception as e:
+            print(f"Failed to send reminder {key}: {e}")
 
-    try:
-        messages = build_prompt(user_input)
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.8
-        )
-        await channel.send(response.choices[0].message.content)
-    except Exception as e:
-        print(f"OpenAI Error: {e}")
-
-### --- Slash Commands ---
 @bot.tree.command(name="remind", description="Set a reminder for yourself.")
 @app_commands.describe(duration_str="Time like 10m, 2h, 1d", message="What should I remind you about?")
 async def remind(interaction: discord.Interaction, duration_str: str, message: str):
-    duration = parse_duration(duration_str)
-    if not duration or duration <= 0 or duration > 604800:  # Max: 7 days
+    try:
+        duration = parse_duration(duration_str)
+        if duration <= 0 or duration > 604800:
+            raise ValueError()
+    except ValueError:
         await interaction.response.send_message("⚠️ Please use a valid time (like `10m`, `2h`, `1d`). Max is 7 days.", ephemeral=True)
         return
-
     remind_time = time.time() + duration
     reminder_id = str(uuid.uuid4())[:8]
     key = f"reminder:{interaction.guild.id}:{interaction.user.id}:{reminder_id}"
-
-    db.set(key, json.dumps({
-        "remind_time": remind_time,
-        "message": message
-    }))
-
+    db.set(key, json.dumps({"remind_time": remind_time, "message": message}))
     asyncio.create_task(schedule_reminder(interaction.guild.id, interaction.user.id, reminder_id, remind_time, message))
-
     dt = datetime.fromtimestamp(remind_time).strftime("%Y-%m-%d %H:%M:%S")
     await interaction.response.send_message(f"✅ I’ll remind you at **{dt}**! Your reminder ID is `{reminder_id}`.", ephemeral=True)
 
@@ -265,7 +249,6 @@ async def list_reminders(interaction: discord.Interaction):
     if not keys:
         await interaction.response.send_message("📭 You have no active reminders.", ephemeral=True)
         return
-
     entries = []
     now = time.time()
     for key in keys:
@@ -276,7 +259,6 @@ async def list_reminders(interaction: discord.Interaction):
             continue
         minutes = remaining // 60
         entries.append(f"`{reminder_id}` – in **{minutes}m** – {data['message']}")
-
     if not entries:
         await interaction.response.send_message("📭 You have no active reminders.", ephemeral=True)
     else:
@@ -291,442 +273,106 @@ async def cancel_reminder(interaction: discord.Interaction, reminder_id: str):
     else:
         await interaction.response.send_message(f"⚠️ Reminder `{reminder_id}` not found.", ephemeral=True)
 
-@bot.tree.command(name="bee_species", description="Discover your inner bee species!")
-async def bee_species(interaction: discord.Interaction):
-    if not BEE_SPECIES:
-        await interaction.response.send_message("🐝 Hmm... I don’t know any bee species right now!", ephemeral=True)
-        return
+...
 
-    species = random.choice(BEE_SPECIES)
-    await interaction.response.send_message(f"🔍 You are a **{species}**! 🐝✨")
+# === Consent Commands ===
 
-@bot.tree.command(name="bee_quiz", description="Test your bee knowledge!")
-async def bee_quiz(interaction: discord.Interaction):
-    if not BEE_QUIZZES:
-        await interaction.response.send_message("🐝 Hmm... I don't have any quizzes right now.", ephemeral=True)
-        return
-
-    q = random.choice(BEE_QUIZZES)
-    formatted_options = "\n".join(q["options"])
-    await interaction.response.send_message(
-        f"🧠 **{q['question']}**\n\n{formatted_options}\n\n*(Answer: {q['answer']})*"
-    )
-
-@bot.tree.command(name="fortune", description="Get some validating buzzword messages for your day!")
-async def fortune(interaction: discord.Interaction):
-    if not BEE_FORTUNES:
-        await interaction.response.send_message(
-            "🐝 Hmm... I can’t think of any fortunes right now!", ephemeral=True
-        )
-        return
-
-    selection = random.sample(BEE_FORTUNES, min(4, len(BEE_FORTUNES)))
-    response = "🌼 Your fortunes today are:\n" + "\n".join(f"*{line}*" for line in selection)
-    await interaction.response.send_message(response)
-
-@bot.tree.command(name="bee_match", description="Find your bee buddy match!")
-async def bee_match(interaction: discord.Interaction):
-    members = [
-        m for m in interaction.guild.members
-        if not m.bot and m != interaction.user
-    ]
-
-    if not members:
-        await interaction.response.send_message("🐝 Hmm... no one to match you with right now!", ephemeral=True)
-        return
-
-    match = random.choice(members)
-    compatibility = random.randint(25, 100)
-
-    await interaction.response.send_message(
-        f"💛 You and {match.mention} have a **{compatibility}%** pollen-ship compatibility! 🐝✨"
-    )
-
-@bot.tree.command(name="bee_name", description="Get a cute bee-themed nickname!")
-async def bee_name(interaction: discord.Interaction):
-    if not BEE_NAME_PREFIXES or not BEE_NAME_SUFFIXES:
-        await interaction.response.send_message("🐝 Hmm... I can't come up with a bee name right now!", ephemeral=True)
-        return
-
-    name = random.choice(BEE_NAME_PREFIXES) + random.choice(BEE_NAME_SUFFIXES)
-    await interaction.response.send_message(f"🐝 Your bee name is: **{name}**!")
-
-@bot.tree.command(name="consent", description="Give BeeBot permission to send your messages to OpenAI.")
-async def consent(interaction: discord.Interaction):
-    guild_id = interaction.guild.id
+@bot.tree.command(name="consent_set", description="Manage your consent settings with the bot")
+@app_commands.describe(option="Choose: On, Off, or Info")
+@app_commands.choices(option=[
+    app_commands.Choice(name="On", value="on"),
+    app_commands.Choice(name="Off", value="off"),
+    app_commands.Choice(name="Info", value="info")
+])
+async def consent_set(interaction: discord.Interaction, option: app_commands.Choice[str]):
     user_id = interaction.user.id
-    set_user_consent(guild_id, user_id)
-    await interaction.response.send_message(
-        "🐝 Thanks for consenting! I’ll now be able to process your requests safely and respectfully. 💛",
-        ephemeral=True
-    )
 
-@bot.tree.command(name="bee_help", description="List BeeBot commands.")
-async def bee_help(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🐝✨ **BeeBot Slash Commands:**\n\n"
-        "**Support & Wellbeing**\n"
-        "/ask [question] – Ask BeeBot anything\n"
-        "/bee_validate – Get a validating compliment 💛\n"
-        "/bee_support – Mental health resources\n"
-        "/crisis [country] – Get a crisis line\n"
-        "/bee_mood [text] – Share your mood\n"
-        "/bee_gratitude [text] – Share something you're grateful for\n"
-        "/consent – Grant permission for BeeBot to reply using OpenAI\n"
-        "/remind [time] [message] – Set a personal reminder ⏰\n"
-        "/list_reminders – See your active reminders 📝\n" 
-        "/cancel_reminder [id] – Cancel a specific reminder ❌\n\n"
-        "**Fun & Encouragement**\n"
-        "/bee_fact – Get a fun bee fact 🐝\n"
-        "/bee_question – Reflective prompt for the hive\n"
-        "/buzzwords – Get 4 validating affirmations 📝\n"
-        "/bee_joke – Hear a bee-themed joke 😄\n"
-        "/bee_name – Get a fun bee-themed nickname 🎉\n"
-        "/bee_match – Match with another bee buddy 🐝💛\n"
-        "/bee_quiz – Test your bee knowledge 📚\n"
-        "/bee_species – Discover your inner bee species 🐝\n\n"
-        "**Setup & Admin**\n"
-        "/set_autoreply [channel] [on/off] – Enable or disable auto-replies\n"
-        "/bee_autoreply [on/off] – Toggle auto-reply in the current channel\n"
-        "/set_announcement_channel – Set a channel for announcements 📢\n"
-        "/set_version_channel – Set a channel for version updates 🆕\n"
-        "/announcement [message] – Send a formatted announcement (requires 'Announcement' role)\n\n"
-        "🌻 Need help? Just buzz! I'm always here to support you. 💛"
-    )
+    if option.value == "on":
+        grant_universal_consent(user_id)
+        await interaction.response.send_message("✅ Consent enabled globally.", ephemeral=True)
 
-@bot.tree.command(name="bee_support", description="Get mental health resources.")
-async def bee_support(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "🌻 **Mental health resources:**\n\n"
-        "• [988 Lifeline (US)](https://988lifeline.org)\n"
-        "• [Trans Lifeline](https://translifeline.org) – 877-565-8860\n"
-        "• [International Support](https://findahelpline.com)\n\n"
-        "🐝 You're not alone. 💛"
-    )
+    elif option.value == "off":
+        revoke_universal_consent(user_id)
+        await interaction.response.send_message("❌ Consent revoked globally.", ephemeral=True)
 
-@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
-async def bee_fact(interaction: discord.Interaction):
-    fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
-    await interaction.response.send_message(fact)
-
-@bot.tree.command(name="bee_question", description="Get everyone's experiences with different things.")
-async def bee_question(interaction: discord.Interaction):
-    question = random.choice(BEE_QUESTIONS) if BEE_QUESTIONS else "🐝 Hmm... I can't think of a question, but I love yours!"
-    await interaction.response.send_message(question)
-
-@bot.tree.command(name="bee_validate", description="Get a validating compliment.")
-async def bee_validate(interaction: discord.Interaction):
-    await handle_prompt(interaction, "Give me a validating compliment with bee puns and emojis.")
-
-@bot.tree.command(name="bee_mood", description="Share your mood with BeeBot.")
-async def bee_mood(interaction: discord.Interaction, mood: str):
-    await handle_prompt(interaction, f"My mood is: {mood}")
-
-@bot.tree.command(name="bee_gratitude", description="Share something you're grateful for.")
-async def bee_gratitude(interaction: discord.Interaction, gratitude: str):
-    await handle_prompt(interaction, f"I'm grateful for: {gratitude}")
-
-@bot.tree.command(name="ask", description="Ask BeeBot a question.")
-async def ask(interaction: discord.Interaction, question: str):
-    await handle_prompt(interaction, question)
-
-# Crisis Line Command
-CRISIS_CHOICES = [
-    app_commands.Choice(name="United States", value="us"),
-    app_commands.Choice(name="United Kingdom", value="uk"),
-    app_commands.Choice(name="Canada", value="canada"),
-    app_commands.Choice(name="Australia", value="australia"),
-    app_commands.Choice(name="Global", value="global"),
-    app_commands.Choice(name="All", value="all"),
-]
-
-async def crisis_autocomplete(interaction: discord.Interaction, current: str):
-    current = current.lower()
-    return [choice for choice in CRISIS_CHOICES if current in choice.name.lower() or current in choice.value.lower()][:25]
-
-@bot.tree.command(name="crisis", description="Get a crisis line for your country.")
-@app_commands.describe(country="Choose a country or 'all'")
-@app_commands.autocomplete(country=crisis_autocomplete)
-async def crisis(interaction: discord.Interaction, country: str):
-    lines = {
-        "us": "🇺🇸 **US**: 988",
-        "uk": "🇬🇧 **UK**: 116 123 (Samaritans)",
-        "canada": "🇨🇦 **Canada**: 1-833-456-4566",
-        "australia": "🇦🇺 **Australia**: 13 11 14",
-        "global": "🌐 **Global**: https://www.befrienders.org/"
-    }
-
-    country = country.lower()
-    if country == "all":
-        msg = "💛 Please reach out to a professional crisis line:\n\n" + "\n".join(lines.values())
-    elif country in lines:
-        msg = f"💛 You're not alone. Here's help:\n{lines[country]}"
-    else:
-        msg = (
-            "⚠️ I don't recognize that country. Try one of these:\n"
-            "`us`, `uk`, `canada`, `australia`, `global`, or `all`"
+    elif option.value == "info":
+        await interaction.response.send_message(
+                        """**Privacy Info**
+            
+            This bot stores limited user data only to provide services like reminders, logs, and personalized replies.
+            - Your data is not shared with third parties other than OpenAI.
+            - You can revoke consent at any time using `/consent_set`.
+            
+            **OpenAI Privacy Policy:** https://openai.com/policies/privacy-policy
+            
+            🛡️ **BeeBot Privacy Policy**
+            **Effective Date:** 7/16/2025
+            
+            At BeeBot, your privacy and trust are extremely important to us. This policy outlines how we handle your data and our commitment to keeping it safe.
+            
+            🔒 **What We Collect**
+            - Your Discord user ID
+            - Reminder messages and scheduled times (only when you set a reminder)
+            - Consent preferences for AI replies
+            - Channel settings for features like auto-reply and announcements
+            
+            We do **NOT** collect:
+            - Private messages (unless you directly message BeeBot)
+            - Any other personal information
+            
+            🚫 **What We Never Do**
+            - We **NEVER** sell your data
+            - We **NEVER** use your data for advertising or marketing
+            
+            ✅ **Why We Use Your Data**
+            BeeBot uses minimal data **ONLY** to:
+            - Provide features like reminders, auto-replies, and responses
+            - Respect and store your consent choices
+            
+            🔐 **Data Retention**
+            - Reminders are deleted automatically after delivery
+            - You can revoke consent at any time using `/consent_set`
+            
+            📬 **Contact**
+            For questions, reach out to the bot maintainer or your server moderator.
+            """,
+                        ephemeral=True
         )
 
-    await interaction.response.send_message(msg)
+# === Auto-Reply & Channel Settings ===
 
-@bot.tree.command(name="bee_autoreply", description="Toggle BeeBot autoreply in this channel.")
-async def bee_autoreply(interaction: discord.Interaction, mode: str):
+@bot.tree.command(name="set_autoreply", description="Enable or disable auto-reply for a specific channel.")
+@app_commands.describe(channel="The text channel to set", mode="on or off")
+async def set_autoreply(interaction: discord.Interaction, channel: discord.TextChannel, mode: str):
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
         return
 
-    guild_id = interaction.guild.id
-    channel_id = interaction.channel.id
-
     if mode.lower() == "on":
-        auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
-        save_settings(auto_reply_channels, announcement_channels, version_channels)
-        await interaction.response.send_message("✅ Auto-reply enabled in this channel! 🐝")
+        enable_auto_reply(channel.id)
+        await interaction.response.send_message(f"✅ Auto-reply enabled for {channel.mention}.", ephemeral=True)
     elif mode.lower() == "off":
-        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
-            auto_reply_channels[guild_id].remove(channel_id)
-            if not auto_reply_channels[guild_id]:
-                del auto_reply_channels[guild_id]
-            save_settings(auto_reply_channels, announcement_channels, version_channels)
-        await interaction.response.send_message("❌ Auto-reply disabled.")
+        disable_auto_reply(channel.id)
+        await interaction.response.send_message(f"❌ Auto-reply disabled for {channel.mention}.", ephemeral=True)
     else:
-        await interaction.response.send_message("❗ Use `/bee_autoreply on` or `/bee_autoreply off`", ephemeral=True)
+        await interaction.response.send_message("⚠️ Use 'on' or 'off' as the mode.", ephemeral=True)
 
-@bot.tree.command(name="set_autoreply", description="Enable or disable auto-reply for a specific channel (text or forum).")
-@app_commands.describe(channel="The channel (text or forum)", mode="on or off")
-async def set_autoreply(interaction: discord.Interaction, channel: discord.abc.GuildChannel, mode: str):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
-
-    if not isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
-        await interaction.response.send_message("⚠️ Only text or forum channels are supported.", ephemeral=True)
-        return
-
-    guild_id = interaction.guild.id
-    channel_id = channel.id
-
-    if mode.lower() == "on":
-        auto_reply_channels.setdefault(guild_id, set()).add(channel_id)
-        save_settings(auto_reply_channels, announcement_channels, version_channels)
-        await interaction.response.send_message(f"✅ Auto-reply enabled for {channel.mention} (type: {channel.type.name})")
-    elif mode.lower() == "off":
-        if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
-            auto_reply_channels[guild_id].remove(channel_id)
-            if not auto_reply_channels[guild_id]:
-                del auto_reply_channels[guild_id]
-            save_settings(auto_reply_channels, announcement_channels, version_channels)
-        await interaction.response.send_message(f"❌ Auto-reply disabled for {channel.mention}")
-    else:
-        await interaction.response.send_message("❗ Use 'on' or 'off'", ephemeral=True)
-
-@bot.tree.command(name="set_version_channel", description="Set the channel for version updates.")
+@bot.tree.command(name="set_version_channel", description="Set the current channel to receive version updates.")
 async def set_version_channel(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
         return
 
-    version_channels[interaction.guild.id] = interaction.channel.id
-    save_settings(auto_reply_channels, announcement_channels, version_channels)
-    await interaction.response.send_message(f"✅ Version updates will post in {interaction.channel.mention}")
+    key = f"guild:{interaction.guild.id}:version_channel"
+    db.set(key, interaction.channel.id)
+    await interaction.response.send_message(f"✅ This channel is now set to receive version updates.", ephemeral=True)
 
-@bot.tree.command(name="set_announcement_channel", description="Set the channel for announcements.")
+@bot.tree.command(name="set_announcement_channel", description="Set the current channel to receive announcements.")
 async def set_announcement_channel(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
         return
 
-    announcement_channels[interaction.guild.id] = interaction.channel.id
-    save_settings(auto_reply_channels, announcement_channels, version_channels)
-    await interaction.response.send_message(f"✅ Announcements will post in {interaction.channel.mention}")
-
-@bot.tree.command(name="bee_joke", description="Get a fun bee-themed joke!")
-async def bee_joke(interaction: discord.Interaction):
-    if BEE_JOKES:
-        joke = random.choice(BEE_JOKES)
-    else:
-        joke = "🐝 Hmm... I couldn’t think of a joke, but I hope you’re smiling anyway!"
-    await interaction.response.send_message(joke)
-
-@bot.tree.command(name="announcement", description="Send an announcement to the configured announcement channel.")
-@app_commands.describe(message="The announcement message to send.")
-async def announcement(interaction: discord.Interaction, message: str):
-    guild_id = interaction.guild.id
-    announcement_channel_id = announcement_channels.get(guild_id)
-    announcement_role = discord.utils.get(interaction.guild.roles, name="Announcement")
-
-    if not announcement_role or announcement_role not in interaction.user.roles:
-        await interaction.response.send_message("🚫 You need the Announcement role to use this command.", ephemeral=True)
-        return
-
-    if not announcement_channel_id:
-        await interaction.response.send_message("⚠️ No announcement channel set for this server.", ephemeral=True)
-        return
-
-    channel = interaction.guild.get_channel(announcement_channel_id)
-    if not channel:
-        await interaction.response.send_message("⚠️ Announcement channel not found.", ephemeral=True)
-        return
-
-    # Create an aesthetically pleasing embed
-    embed = discord.Embed(
-        title="📢 New Announcement",
-        description=message,
-        color=discord.Color.gold(),
-        timestamp=discord.utils.utcnow()
-    )
-    embed.set_footer(text=f"Announced by {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url)
-
-    await channel.send(embed=embed)
-    await interaction.response.send_message(f"✅ Announcement sent to {channel.mention}", ephemeral=True)
-
-@bot.event
-async def on_guild_join(guild):
-    for role_name in ["Beebot", "Announcement"]:
-        if not discord.utils.get(guild.roles, name=role_name):
-            try:
-                await guild.create_role(name=role_name)
-            except Exception as e:
-                print(f"Error creating role '{role_name}': {e}")
-
-@bot.event
-async def on_message(message):
-    if message.author.bot or not message.guild:
-        return
-
-    guild_id = message.guild.id
-    channel_id = message.channel.id
-
-    if guild_id in auto_reply_channels and channel_id in auto_reply_channels[guild_id]:
-        if message.channel.type != discord.ChannelType.forum:
-            await handle_prompt_raw(message.channel, message.content, message.author.id, guild_id)
-
-@bot.event
-async def on_thread_create(thread):
-    try:
-        print(f"🧵 Thread created: {thread.name} (ID: {thread.id}) in guild: {thread.guild.name}")
-
-        if getattr(thread.parent, "type", None) != discord.ChannelType.forum:
-            print(f"🔕 Skipped: Thread parent is not a forum (Type: {thread.parent.type})")
-            return
-
-        guild_id = thread.guild.id
-        forum_channel_id = thread.parent.id
-
-        print(f"🔍 Checking if auto-reply is enabled for: {thread.parent.name} (ID: {forum_channel_id})")
-        if forum_channel_id not in auto_reply_channels.get(guild_id, set()):
-            print(f"❌ Auto-reply not enabled for {thread.parent.name}")
-            return
-
-        await thread.join()
-        print("✅ Joined thread successfully")
-
-        await asyncio.sleep(1)
-
-        # Collect recent messages
-        messages = []
-        print("📥 Collecting thread messages...")
-        async for msg in thread.history(limit=10, oldest_first=True):
-            if msg.content.strip():
-                messages.append(f"{msg.author.display_name}: {msg.content.strip()}")
-
-        if not messages:
-            print(f"❌ No message content found in thread: {thread.name}")
-            return
-
-        convo = "\n".join(messages)
-        print(f"📝 Collected conversation:\n{convo}")
-
-        # Get thread starter
-        thread_starter = thread.owner
-        if not thread_starter:
-            async for msg in thread.history(limit=1, oldest_first=True):
-                thread_starter = msg.author
-                break
-
-        if not thread_starter:
-            print(f"⚠️ Unable to determine thread starter.")
-            return
-
-        user_id = thread_starter.id
-        user_mention = thread_starter.mention
-        print(f"👤 Thread starter: {thread_starter.display_name} (ID: {user_id})")
-
-        if not has_user_consented(guild_id, user_id):
-            print(f"🔒 User {user_id} has not given consent.")
-            await thread.send(
-                f"{user_mention} 🐝 I’d love to help, but I need your permission first.\n"
-                f"Please type `/consent` in the server. 💛"
-            )
-            return
-
-        # Build and send prompt to OpenAI
-        prompt = (
-            f"A user started a thread titled:\n"
-            f"**{thread.name}**\n\n"
-            f"Conversation so far:\n{convo}\n\n"
-            f"Reply with warmth, bee puns, emojis, and kindness. Validate the user's feelings."
-        )
-
-        print("🤖 Sending prompt to OpenAI...")
-        messages_for_openai = build_prompt(prompt)
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages_for_openai,
-            temperature=0.8
-        )
-
-        reply_text = f"{user_mention} 🐝\n\n" + response.choices[0].message.content
-        await thread.send(reply_text)
-        print(f"✅ Responded in thread: {thread.name}")
-
-    except Exception as e:
-        print(f"🐛 Error in thread handler: {e}")
-
-### --- Version Handling ---
-
-def read_version_info(file_path="version.txt"):
-    if not os.path.exists(file_path):
-        return None, None
-    with open(file_path, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()]
-    if len(lines) > 1:
-        return lines[0], "\n".join(lines[1:])
-    else:
-        return lines[0], ""
-
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user} and synced slash commands.")
-
-    version, description = read_version_info()
-    if not version:
-        return
-
-    version_msg = f"🐝 **BeeBot {version}**\n{description}"
-    for guild in bot.guilds:
-        channel_id = version_channels.get(guild.id)
-        if channel_id:
-            channel = guild.get_channel(channel_id)
-            if channel:
-                try:
-                    await channel.send(version_msg)
-                except Exception as e:
-                    print(f"❌ Couldn't post version in {guild.name}: {e}")
-    # ⏰ Reschedule all pending reminders
-    for key in db.scan_iter("reminder:*"):
-        parts = key.split(":")
-        if len(parts) != 4:
-            continue
-        guild_id, user_id, reminder_id = map(int, parts[1:])
-        try:
-            reminder_data = json.loads(db.get(key))
-            remind_time = reminder_data["remind_time"]
-            message = reminder_data["message"]
-            asyncio.create_task(schedule_reminder(guild_id, user_id, reminder_id, remind_time, message))
-        except Exception as e:
-            print(f"❌ Error rescheduling reminder {key}: {e}")
-
-# Run the bot
-bot.run(DISCORD_TOKEN)
+    key = f"guild:{interaction.guild.id}:announcement_channel"
+    db.set(key, interaction.channel.id)
+    await interaction.response.send_message(f"✅ This channel is now set to receive announcements.", ephemeral=True)
