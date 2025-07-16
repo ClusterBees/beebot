@@ -1,3 +1,4 @@
+BeeBot_version = "4.0.0"
 import os
 import random
 import asyncio
