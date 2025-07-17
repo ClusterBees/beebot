@@ -5,7 +5,7 @@ import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 import redis
 from datetime import datetime
@@ -15,7 +15,8 @@ import json
 
 # Load environment variables
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(
+  api_key=os.env["OPENAI_API_KEY"]
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis DB setup
