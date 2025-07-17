@@ -12,7 +12,6 @@ import asyncio
 # Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis setup using environment variables
@@ -78,6 +77,22 @@ def ai_response(prompt):
     )
     return response.choices[0].message['content'].strip()
 
+def parse_duration(time_str):
+    match = re.fullmatch(r"(\\d+)([smhd]?)", time_str.strip().lower())
+    if not match:
+        return None
+    value, unit = match.groups()
+    value = int(value)
+    if unit == "s" or unit == "":
+        return value
+    elif unit == "m":
+        return value * 60
+    elif unit == "h":
+        return value * 3600
+    elif unit == "d":
+        return value * 86400
+    return None
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name}")
@@ -85,8 +100,6 @@ async def on_ready():
         for channel_name in ["errors", "version", "announcements"]:
             if not discord.utils.get(guild.text_channels, name=channel_name):
                 await guild.create_text_channel(channel_name)
-        # Load user reminders and settings
-        # (implementation depends on how reminders are stored)
         version_channel = discord.utils.get(guild.text_channels, name="version")
         if version_channel:
             await version_channel.send(version_text)
@@ -112,55 +125,54 @@ async def on_message(message):
             reply = ai_response(message.content)
             await message.channel.send(reply)
 
-@bot.add_command()
+@bot.command(name="announcement")
 async def announcement(ctx, *, msg):
     announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
     if announcement_channel:
         await announcement_channel.send(msg)
 
-# Slash commands via discord.ext.commands
-@bot.add_command(name="bee_fact")
+@bot.command(name="bee_fact")
 async def bee_fact(ctx):
     await ctx.send(random.choice(facts))
 
-@bot.add_command(name="bee_fortune")
+@bot.command(name="bee_fortune")
 async def bee_fortune(ctx):
     await ctx.send(random.choice(fortunes))
 
-@bot.add_command(name="bee_joke")
+@bot.command(name="bee_joke")
 async def bee_joke(ctx):
     await ctx.send(random.choice(jokes))
 
-@bot.add_command(name="bee_name")
+@bot.command(name="bee_name")
 async def bee_name(ctx):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
     await ctx.respond(name)
 
-@bot.add_command(name="bee_question")
+@bot.command(name="bee_question")
 async def bee_question(ctx):
     await ctx.respond(random.choice(questions))
 
-@bot.add_command(name="bee_quiz")
+@bot.command(name="bee_quiz")
 async def bee_quiz(ctx):
     q, _ = get_random_quiz()
     await ctx.respond(q)
 
-@bot.add_command(name="bee_species")
+@bot.command(name="bee_species")
 async def bee_species_cmd(ctx):
     await ctx.respond(random.choice(bee_species))
 
-@bot.add_command(name="ask")
+@bot.command(name="ask")
 async def ask(ctx, *, question):
     if not check_privacy_consent(str(ctx.author.id)):
         await ctx.respond("Please use /consent to provide data consent before using BeeBot.")
         return
     await ctx.respond(ai_response(question))
 
-@bot.add_command(name="bee_validate")
+@bot.command(name="bee_validate")
 async def bee_validate(ctx):
     await ctx.respond("You're doing great! Keep buzzing!")
 
-@bot.add_command(name="consent")
+@bot.command(name="consent")
 async def consent(ctx, choice: str):
     if choice.lower() not in ["on", "off", "info"]:
         await ctx.respond("Please choose: on, off, or info")
@@ -170,23 +182,19 @@ async def consent(ctx, choice: str):
         r.set(f"consent:{ctx.author.id}", choice.lower())
         await ctx.respond(f"Consent {choice.lower()}.")
 
-# Reminder commands (implementation stubbed)
-@bot.add_command(name="set_reminder")
+@bot.command(name="set_reminder")
 async def set_reminder(ctx, time: str, *, reminder: str):
     await ctx.respond(f"Reminder set for {time}: {reminder}")
-    # Store to Redis with a timestamp
 
-@bot.add_command(name="get_reminders")
+@bot.command(name="get_reminders")
 async def get_reminders(ctx):
     await ctx.respond("Here are your reminders:")
-    # Fetch from Redis
 
-@bot.add_command(name="delete_reminder")
+@bot.command(name="delete_reminder")
 async def delete_reminder(ctx, index: int):
     await ctx.respond(f"Reminder {index} deleted.")
-    # Delete from Redis
 
-@bot.add_command(name="crisis")
+@bot.command(name="crisis")
 async def crisis(ctx):
     help_lines = """
     🌍 **Global Crisis Support Lines**:
@@ -203,7 +211,7 @@ async def crisis(ctx):
     """
     await ctx.respond(help_lines)
 
-@bot.add_command(name="bee_help")
+@bot.command(name="bee_help")
 async def bee_help(ctx):
     await ctx.respond("""
     **BeeBot Commands:**
