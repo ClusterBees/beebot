@@ -16,7 +16,7 @@ import json
 # Load environment variables
 load_dotenv()
 client = OpenAI(
-  api_key=os.env["OPENAI_API_KEY"]
+  api_key=os.env["OPENAI_API_KEY"])
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis DB setup
