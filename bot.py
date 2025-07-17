@@ -112,7 +112,8 @@ async def generate_bee_response(user_input: str) -> str:
             temperature=0.8
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
+    except Exception as e:
+        print(f"Error: {e}")  # Log the error to console
         return "🐝 Buzz buzz! I'm having trouble thinking right now... try again later!"
 
 # Ready
