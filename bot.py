@@ -13,6 +13,15 @@ import time
 import uuid
 import json
 
+
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
 # Load environment variables
 load_dotenv()
 client = OpenAI(
@@ -72,7 +81,7 @@ auto_reply_channels = RedisSetManager(AUTO_REPLY_CHANNELS_KEY)
 universal_consent = RedisSetManager(UNIVERSAL_CONSENT_KEY)
 
 def load_file_lines(filename, pairwise=False):
-    path = Path(filename)
+    path = path(filename)
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8") as f:
@@ -115,6 +124,16 @@ async def generate_bee_response(user_input: str) -> str:
 # Ready
 @bot.event
 async def on_ready():
+            await channel.send("✅ BeeBot is up and running!")
+    if announcement_channel_id:
+        channel = bot.get_channel(int(announcement_channel_id))
+        if channel:
+    if bot.user:
+        print(f"✅ Logged in as {bot.user} and synced slash commands.")
+    else:
+        print("✅ Bot is logged in and slash commands synced.")
+        else:
+            logging.warning(\"Announcement channel not found.\")
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} and synced slash commands.")
     for key in db.scan_iter("reminder:*"):
@@ -429,10 +448,6 @@ async def set_error_channel(interaction: discord.Interaction):
     db.set(key, interaction.channel.id)
     await interaction.response.send_message("✅ This channel is now set to receive error logs.", ephemeral=True)
 
-bot.run(DISCORD_TOKEN)
-
-
-
 @bot.tree.command(name="auto_reply", description="Toggle auto reply on or off for this channel.")
 @app_commands.describe(option="Turn auto reply On or Off.")
 async def auto_reply(interaction: discord.Interaction, option: str):
@@ -445,3 +460,5 @@ async def auto_reply(interaction: discord.Interaction, option: str):
         await interaction.response.send_message("Auto-reply disabled for this channel.")
     else:
         await interaction.response.send_message("Invalid option. Use 'on' or 'off'.")
+
+bot.run(DISCORD_TOKEN)
