@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import asyncio
 import re
 
+ANNOUNCEMENT_ROLE_NAME = "Bee Announcer"
+
 # Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -70,9 +72,11 @@ def get_random_quiz():
     return f"{parts[0]}\nA) {parts[1]}\nB) {parts[2]}\nC) {parts[3]}", parts[4] if len(parts) == 5 else ""
 
 def ai_response(prompt):
+    print(f"AI prompt: {prompt}")
     combined_prompt = f"{personality}\n\nUser: {prompt}\nBeeBot:"
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
+            print("Prompt contains banned phrase.")
             return "I'm not allowed to discuss that topic."
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -81,7 +85,9 @@ def ai_response(prompt):
             {"role": "user", "content": prompt}
         ]
     )
-    return response.choices[0].message['content'].strip()
+    reply = response.choices[0].message['content'].strip()
+    print(f"AI response: {reply}")
+    return reply
 
 def parse_duration(time_str):
     match = re.fullmatch(r"(\d+)([smhd]?)", time_str.strip().lower())
@@ -123,17 +129,20 @@ async def on_ready():
         for channel_name in ["errors", "version", "announcements"]:
             if not discord.utils.get(guild.text_channels, name=channel_name):
                 await guild.create_text_channel(channel_name)
-              
+
 @bot.event
 async def on_guild_join(guild):
+    print(f"Joined new guild: {guild.name} ({guild.id})")
     if not discord.utils.get(guild.roles, name=ANNOUNCEMENT_ROLE_NAME):
         await guild.create_role(name=ANNOUNCEMENT_ROLE_NAME, reason="Creating announcement role for BeeBot")
-      
+        print(f"Created role '{ANNOUNCEMENT_ROLE_NAME}' in guild '{guild.name}'")
+
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
+    print(f"Received message in #{message.channel}: {message.content}")
     user_id = str(message.author.id)
     if not check_privacy_consent(user_id):
         await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
@@ -142,137 +151,27 @@ async def on_message(message):
     channel_key = f"autoreply:{message.channel.id}"
     if r.get(channel_key) == "on":
         if message.content.startswith("!"):
+            print("Processing command...")
             await bot.process_commands(message)
         elif message.content.endswith("?"):
+            print("AI response triggered...")
             reply = ai_response(message.content)
             await message.channel.send(reply)
 
 @bot.command(name="announcement")
 async def announcement(ctx, *, msg):
+    print(f"Attempting announcement by {ctx.author.name} in {ctx.guild.name}")
+    role = discord.utils.get(ctx.author.roles, name=ANNOUNCEMENT_ROLE_NAME)
+    if not role:
+        await ctx.send(f"⛔ You need the '{ANNOUNCEMENT_ROLE_NAME}' role to make announcements.")
+        return
+
     announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
     if announcement_channel:
         await announcement_channel.send(msg)
-
-# Slash commands
-@bot.tree.command(name="bee_fact", description="Get a random bee-related fact")
-async def bee_fact(interaction: discord.Interaction):
-    await interaction.response.send_message(random.choice(facts))
-
-@bot.tree.command(name="bee_fortune", description="Receive a bee-themed fortune")
-async def bee_fortune(interaction: discord.Interaction):
-    await interaction.response.send_message(random.choice(fortunes))
-
-@bot.tree.command(name="bee_joke", description="Hear a bee joke")
-async def bee_joke(interaction: discord.Interaction):
-    await interaction.response.send_message(random.choice(jokes))
-
-@bot.tree.command(name="bee_name", description="Generate a random bee name")
-async def bee_name(interaction: discord.Interaction):
-    name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
-    await interaction.response.send_message(name)
-
-@bot.tree.command(name="bee_question", description="Get a deep or fun question")
-async def bee_question(interaction: discord.Interaction):
-    await interaction.response.send_message(random.choice(questions))
-
-@bot.tree.command(name="bee_quiz", description="Take a random bee quiz")
-async def bee_quiz(interaction: discord.Interaction):
-    q, _ = get_random_quiz()
-    await interaction.response.send_message(q)
-
-@bot.tree.command(name="bee_species", description="Learn about a random bee species")
-async def bee_species_cmd(interaction: discord.Interaction):
-    await interaction.response.send_message(random.choice(bee_species))
-
-@bot.tree.command(name="ask", description="Ask BeeBot a question")
-@app_commands.describe(question="Your question to BeeBot")
-async def ask(interaction: discord.Interaction, question: str):
-    if not check_privacy_consent(str(interaction.user.id)):
-        await interaction.response.send_message("Please use /consent to provide data consent before using BeeBot.")
-        return
-    await interaction.response.send_message(ai_response(question))
-
-@bot.tree.command(name="bee_validate", description="Get emotional validation")
-async def bee_validate(interaction: discord.Interaction):
-    await interaction.response.send_message("You're doing great! Keep buzzing!")
-
-@bot.tree.command(name="consent", description="Manage your privacy consent")
-@app_commands.describe(choice="on, off, or info")
-async def consent(interaction: discord.Interaction, choice: str):
-    if choice.lower() not in ["on", "off", "info"]:
-        await interaction.response.send_message("Please choose: on, off, or info")
-    elif choice.lower() == "info":
-        await interaction.response.send_message("This is the privacy policy.")
+        print(f"Announcement sent: {msg}")
     else:
-        r.set(f"consent:{interaction.user.id}", choice.lower())
-        await interaction.response.send_message(f"Consent {choice.lower()}.")
-
-@bot.tree.command(name="set_reminder", description="Set a personal reminder")
-@app_commands.describe(time="When to remind", reminder="What to remind you of")
-async def set_reminder(interaction: discord.Interaction, time: str, reminder: str):
-    await interaction.response.send_message(f"Reminder set for {time}: {reminder}")
-
-@bot.tree.command(name="get_reminders", description="View your active reminders")
-async def get_reminders(interaction: discord.Interaction):
-    await interaction.response.send_message("Here are your reminders:")
-
-@bot.tree.command(name="delete_reminder", description="Delete a reminder by index")
-@app_commands.describe(index="Reminder index to delete")
-async def delete_reminder(interaction: discord.Interaction, index: int):
-    await interaction.response.send_message(f"Reminder {index} deleted.")
-
-@bot.tree.command(name="crisis", description="View global crisis helplines")
-async def crisis(interaction: discord.Interaction):
-    help_lines = """
-    🌍 **Global Crisis Support Lines**:
-
-    **United States**: 988 (Suicide & Crisis Lifeline)
-    **Canada**: 1-833-456-4566 (Talk Suicide Canada)
-    **UK**: 116 123 (Samaritans)
-    **Australia**: 13 11 14 (Lifeline Australia)
-    **India**: 9152987821 (iCall)
-    **Europe**: 112 (General Emergency Number)
-    **International**: Check https://www.befrienders.org for local crisis centers
-
-    You are not alone. Please reach out. 💛
-    """
-    await interaction.response.send_message(help_lines)
-
-@bot.tree.command(name="bee_help", description="List BeeBot commands")
-async def bee_help(interaction: discord.Interaction):
-    await interaction.response.send_message("""
-    **BeeBot Commands:**
-
-    `/bee_fact` - Get a random bee-related fact.
-    `/bee_fortune` - Receive a bee-themed fortune.
-    `/bee_joke` - Hear a bee joke.
-    `/bee_name` - Generate a random bee name.
-    `/bee_question` - Get a deep or fun question to think about.
-    `/bee_quiz` - Take a random bee quiz (multiple choice).
-    `/bee_species` - Learn about a random bee species.
-    `/ask` - Ask BeeBot any question using AI.
-    `/bee_validate` - Get some emotional validation from BeeBot.
-    `/consent` - Manage your privacy consent settings.
-    `/set_reminder` - Set a personal reminder.
-    `/get_reminders` - View your active reminders.
-    `/delete_reminder` - Delete a reminder by index.
-    `/crisis` - View a list of global crisis helplines.
-    `!announcement` - Send an announcement as BeeBot.
-    """)
-
-@bot.tree.command(name="set_version_channel", description="Set this channel as the version log")
-async def set_version_channel(interaction: discord.Interaction):
-    r.set(f"channel:version:{interaction.guild.id}", interaction.channel.id)
-    await interaction.response.send_message("✅ This channel has been set as the **version** channel.")
-
-@bot.tree.command(name="set_announcement_channel", description="Set this channel for announcements")
-async def set_announcement_channel(interaction: discord.Interaction):
-    r.set(f"channel:announcement:{interaction.guild.id}", interaction.channel.id)
-    await interaction.response.send_message("📢 This channel has been set as the **announcement** channel.")
-
-@bot.tree.command(name="set_error_channel", description="Set this channel for error messages")
-async def set_error_channel(interaction: discord.Interaction):
-    r.set(f"channel:error:{interaction.guild.id}", interaction.channel.id)
-    await interaction.response.send_message("⚠️ This channel has been set as the **error** channel.")
+        await ctx.send("⚠️ Announcement channel not found.")
+        print("Announcement failed: channel not found.")
 
 bot.run(DISCORD_TOKEN)
