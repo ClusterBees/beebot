@@ -1,41 +1,28 @@
-🐝 BeeBot Announcement: v0.1.6 Deployed!
-Version: 0.1.6 (Fresh Hive Build)
-Last Updated: July 17, 2025
+🐝 BeeBot Update: v0.1.7 is Live!
+Version: 0.1.7 (Fresh Hive Build)
+Date: July 17, 2025
 
-The hive keeps humming! This update brings subtle polish, bug squashes, and internal improvements to BeeBot’s growing foundation.
+BeeBot just got a little smarter in the hive. This update improves how BeeBot handles conversations in dynamic threads — especially inside forums.
 
-🔧 What’s New in v0.1.6:
-🧱 Internal Improvements
-Refactored code structure for better readability and future maintainability
+🔧 What’s New in v0.1.7
+💬 Auto-Reply Now Works in Threads by Default
+• BeeBot will respond to all messages in threads, even if /autoreply hasn’t been explicitly enabled
+• Works for forum post threads, standard threads, and temporary discussion channels
+• Prevents confusion when users start new threads expecting BeeBot to reply
 
-Consolidated imports (Interaction added at top level for consistency)
+🤖 More Conversational Behavior
+• BeeBot now responds to all non-command messages in autoreply-enabled channels, not just questions
+• Makes BeeBot feel more responsive and natural in chat
 
-Added missing type in announce() command (Interaction was explicitly imported)
+🧠 Reminder:
+You can still toggle auto-reply with:
 
-🐛 Bugfixes
-Fixed a critical embed creation bug in /announce
-⤷ embed = embed(...) was incorrectly calling the variable instead of the class.
-✅ Now corrected to use discord.Embed(...) for proper embed creation.
-
-Minor cleanup and formatting adjustments in several command descriptions
-
-🚫 Safe by Default
-AI now strictly screens input for banned phrases before sending anything to OpenAI
-
-Fails gracefully if consent is missing or invalid
-
-🐝 Reminder of BeeBot's Powers:
-Auto-reply in trusted spaces using AI
-
-Embedded announcements with role-gated access
-
-Uplifting content: jokes, facts, affirmations, questions, and quizzes
-
-Global helplines via /crisis
-
-User-controlled privacy via /consent
-
+bash
+Copy
+Edit
+/autoreply on
+/autoreply off
 ✨ Status:
-v0.1.6 is a maintenance-focused patch preparing BeeBot for smoother, safer scaling. Expect new features in the next buzz! 🐝💛
+This version smooths out BeeBot’s presence in forums and sets the stage for smarter context-aware replies in future releases. Stay tuned — and keep buzzing! 🐝💛
 
 – The BeeBot Dev Team

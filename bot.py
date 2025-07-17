@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.6 (Fresh Hive Build)
+# BeeBot Version: 0.1.7 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -148,8 +148,12 @@ async def on_message(message):
         await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
         return
 
-    channel_key = f"autoreply:{message.channel.id}"
-    if r.get(channel_key) == "on":
+    channel = message.channel
+    channel_key = f"autoreply:{channel.id}"
+    value = r.get(channel_key)
+    is_thread = isinstance(channel, discord.Thread)
+
+    if value == "on" or (value is None and is_thread):
         if message.content.startswith("!"):
             print("Processing command...")
             await bot.process_commands(message)
