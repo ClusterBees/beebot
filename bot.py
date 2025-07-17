@@ -5,7 +5,6 @@ import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
-import openai
 from openai import OpenAI
 from dotenv import load_dotenv
 import redis
@@ -107,7 +106,7 @@ def format_prompt(user_input):
 
 async def generate_bee_response(user_input: str) -> str:
     try:
-        completion = openai.ChatCompletion.create(
+        completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=format_prompt(user_input),
             max_tokens=100,
