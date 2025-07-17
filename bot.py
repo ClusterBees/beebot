@@ -100,7 +100,7 @@ BEE_SPECIES = load_lines("bee_species.txt")
 def format_prompt(user_input):
     return [
         {"role": "system", "content": BEE_PERSONALITY},
-        {"role": "user", "content": user_input or "Say something fun as Beebot!"}
+        {"role": "user", "content": user_input or "Say something fun as Bieebot!"}
     ]
 
 async def generate_bee_response(user_input: str) -> str:
@@ -384,26 +384,36 @@ async def set_announcement_channel(interaction: discord.Interaction):
     @bot.tree.command(name="bee_help", description="Show all BeeBot commands and what they do.")
     async def bee_help(interaction: discord.Interaction):
         help_text = """
-    **BeeBot Commands**
-    - `/bee_fact` — Get a fun bee fact!
-    - `/bee_question` — Get a question to ponder!
-    - `/bee_joke` — Get a bee-themed joke!
-    - `/bee_name` — Get a cute bee nickname!
-    - `/bee_species` — Discover your inner bee species!
-    - `/fortune` — Get validating buzzword messages for your day!
-    - `/bee_quiz` — Test your bee knowledge!
-    - `/ask <question>` — Ask BeeBot a question.
-    - `/bee_validate` — Get a validating compliment.
-    - `/remind <duration> <message>` — Set a reminder for yourself.
-    - `/list_reminders` — List your active reminders.
-    - `/cancel_reminder <reminder_id>` — Cancel a reminder by its ID.
-    - `/consent_set <On/Off/Info>` — Manage your consent settings.
-    - `/set_autoreply <channel> <on/off>` — Enable/disable auto-reply for a channel.
-    - `/set_version_channel` — Set this channel for version updates.
-    - `/set_announcement_channel` — Set this channel for announcements.
-    - `/bee_help` — Show all BeeBot commands and what they do.
-    - `!announcement <message>` — Send an announcement to the designated channel.
-    """
+        **BeeBot Commands**
+        - `/bee_fact` — Get a fun bee fact!
+        - `/bee_question` — Get a question to ponder!
+        - `/bee_joke` — Get a bee-themed joke!
+        - `/bee_name` — Get a cute bee nickname!
+        - `/bee_species` — Discover your inner bee species!
+        - `/fortune` — Get validating buzzword messages for your day!
+        - `/bee_quiz` — Test your bee knowledge!
+        - `/ask <question>` — Ask BeeBot a question.
+        - `/bee_validate` — Get a validating compliment.
+        - `/remind <duration> <message>` — Set a reminder for yourself.
+        - `/list_reminders` — List your active reminders.
+        - `/cancel_reminder <reminder_id>` — Cancel a reminder by its ID.
+        - `/consent_set <On/Off/Info>` — Manage your consent settings.
+        - `/set_autoreply <channel> <on/off>` — Enable/disable auto-reply for a channel.
+        - `/set_version_channel` — Set this channel for version updates.
+        - `/set_announcement_channel` — Set this channel for announcements.
+        - `/set_error_channel` — Set this channel for error logs.
+        - `/bee_help` — Show all BeeBot commands and what they do.
+        - `!announcement <message>` — Send an announcement to the designated channel.
+        """
         await interaction.response.send_message(help_text, ephemeral=True)
+
+    @bot.tree.command(name="set_error_channel", description="Set the current channel to receive error logs.")
+    async def set_error_channel(interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.manage_channels:
+        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
+        return 
+    key = f"guild:{interaction.guild.id}:error_channel"
+       db.set(key, interaction.channel.id)
+        await interaction.response.send_message(f"✅ This channel is now set to receive error logs.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
