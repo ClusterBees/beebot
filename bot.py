@@ -404,3 +404,5 @@ async def set_announcement_channel(interaction: discord.Interaction):
     - `!announcement <message>` — Send an announcement to the designated channel.
     """
         await interaction.response.send_message(help_text, ephemeral=True)
+
+bot.run(DISCORD_TOKEN)
