@@ -346,13 +346,14 @@ async def announce(interaction: Interaction, message: str):
             return
 
         # Create embed
-        embed = embed(
+        embed = discord.Embed(
             title="📢 Announcement",
             description=message,
             color=discord.Color.gold()
-        )
+            )
         embed.set_footer(text=f"Posted by {member.display_name}", icon_url=member.display_avatar.url)
         embed.timestamp = discord.utils.utcnow()
+
 
         await announcement_channel.send(embed=embed)
         await interaction.followup.send("✅ Announcement sent!", ephemeral=True)
