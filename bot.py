@@ -199,18 +199,29 @@ async def announcement(ctx, *, msg):
         await ctx.send(f"⛔ You need the '{ANNOUNCEMENT_ROLE_NAME}' role to make announcements.")
         return
 
-    announcement_id = r.get(f"channel:announcement:{ctx.guild.id}")
-    if announcement_id:
-        announcement_channel = bot.get_channel(int(announcement_id))
-    else:
-        announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+    try:
+        announcement_id = r.get(f"channel:announcement:{ctx.guild.id}")
+        print(f"Channel ID from Redis: {announcement_id}")
 
-    if announcement_channel:
-        await announcement_channel.send(msg)
-        await ctx.send("📢 Announcement sent.")
-        print(f"Announcement sent to {announcement_channel.name}: {msg}")
-    else:
-        await ctx.send("⚠️ Announcement channel not found or not configured.")
-        print("Announcement failed: channel not found.")
+        if announcement_id:
+            announcement_channel = await bot.fetch_channel(int(announcement_id))
+        else:
+            announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+
+        print(f"Resolved channel: {announcement_channel}")
+
+        if announcement_channel:
+            await announcement_channel.send(msg)
+            await ctx.send("📢 Announcement sent.")
+            print(f"Announcement sent to {announcement_channel.name}: {msg}")
+        else:
+            await ctx.send("⚠️ Announcement channel not found or not configured.")
+            print("Announcement failed: channel not found.")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to send messages in the announcement channel.")
+        print("Failed to send: Forbidden")
+    except discord.HTTPException as e:
+        await ctx.send("⚠️ Failed to send announcement due to a Discord error.")
+        print(f"HTTP error while sending announcement: {e}")
 
 bot.run(DISCORD_TOKEN)
