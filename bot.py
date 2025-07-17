@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.0 (Fresh Hive Build)
+# bot.py
 import discord
 from discord.ext import commands, tasks
 import openai
@@ -34,7 +34,7 @@ intents.messages = True
 intents.guilds = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = discord.Bot(command_prefix="!", intents=intents)
 
 # Load text files
 def load_lines(filename):
@@ -53,7 +53,6 @@ quiz_questions = load_lines("quiz.txt")
 bee_species = load_lines("bee_species.txt")
 banned_phrases = load_lines("banned_phrases.txt")
 version_text = "\n".join(load_lines("version.txt"))
-privacy_policy = "\n".join(load_lines("privacy_policy.txt"))
 
 # Helper functions
 def check_privacy_consent(user_id):
