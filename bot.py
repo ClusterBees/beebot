@@ -1,6 +1,7 @@
 # BeeBot Version: 0.1.3 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
+from discord import app_commands
 from openai import OpenAI
 import os
 import redis
@@ -8,6 +9,7 @@ import random
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import asyncio
+import re
 
 # Load environment variables
 load_dotenv()
@@ -34,7 +36,11 @@ intents.messages = True
 intents.guilds = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+class BeeBot(commands.Bot):
+    async def setup_hook(self):
+        await self.tree.sync()
+
+bot = BeeBot(command_prefix="!", intents=intents)
 
 # Load text files
 def load_lines(filename):
@@ -78,7 +84,7 @@ def ai_response(prompt):
     return response.choices[0].message['content'].strip()
 
 def parse_duration(time_str):
-    match = re.fullmatch(r"(\\d+)([smhd]?)", time_str.strip().lower())
+    match = re.fullmatch(r"(\d+)([smhd]?)", time_str.strip().lower())
     if not match:
         return None
     value, unit = match.groups()
@@ -99,7 +105,6 @@ async def on_ready():
     synced = await bot.tree.sync()
     print(f"Synced {len(synced)} slash commands globally.")
     for guild in bot.guilds:
-        # Attempt to get stored channel IDs from Redis
         version_id = r.get(f"channel:version:{guild.id}")
         announcement_id = r.get(f"channel:announcement:{guild.id}")
         error_id = r.get(f"channel:error:{guild.id}")
@@ -108,7 +113,6 @@ async def on_ready():
         announcement_channel = bot.get_channel(int(announcement_id)) if announcement_id else None
         error_channel = bot.get_channel(int(error_id)) if error_id else None
 
-        # Send messages to configured channels
         if version_channel:
             await version_channel.send(version_text)
         if announcement_channel:
@@ -116,11 +120,15 @@ async def on_ready():
         if error_channel:
             await error_channel.send("⚠️ BeeBot has restarted and is active.")
 
-        # Optionally, still create default channels if none were configured
         for channel_name in ["errors", "version", "announcements"]:
             if not discord.utils.get(guild.text_channels, name=channel_name):
                 await guild.create_text_channel(channel_name)
-
+              
+@bot.event
+async def on_guild_join(guild):
+    if not discord.utils.get(guild.roles, name=ANNOUNCEMENT_ROLE_NAME):
+        await guild.create_role(name=ANNOUNCEMENT_ROLE_NAME, reason="Creating announcement role for BeeBot")
+      
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -145,71 +153,76 @@ async def announcement(ctx, *, msg):
     if announcement_channel:
         await announcement_channel.send(msg)
 
-@bot.command(name="bee_fact")
-async def bee_fact(ctx):
-    await ctx.send(random.choice(facts))
+# Slash commands
+@bot.tree.command(name="bee_fact", description="Get a random bee-related fact")
+async def bee_fact(interaction: discord.Interaction):
+    await interaction.response.send_message(random.choice(facts))
 
-@bot.command(name="bee_fortune")
-async def bee_fortune(ctx):
-    await ctx.send(random.choice(fortunes))
+@bot.tree.command(name="bee_fortune", description="Receive a bee-themed fortune")
+async def bee_fortune(interaction: discord.Interaction):
+    await interaction.response.send_message(random.choice(fortunes))
 
-@bot.command(name="bee_joke")
-async def bee_joke(ctx):
-    await ctx.send(random.choice(jokes))
+@bot.tree.command(name="bee_joke", description="Hear a bee joke")
+async def bee_joke(interaction: discord.Interaction):
+    await interaction.response.send_message(random.choice(jokes))
 
-@bot.command(name="bee_name")
-async def bee_name(ctx):
+@bot.tree.command(name="bee_name", description="Generate a random bee name")
+async def bee_name(interaction: discord.Interaction):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
-    await ctx.respond(name)
+    await interaction.response.send_message(name)
 
-@bot.command(name="bee_question")
-async def bee_question(ctx):
-    await ctx.respond(random.choice(questions))
+@bot.tree.command(name="bee_question", description="Get a deep or fun question")
+async def bee_question(interaction: discord.Interaction):
+    await interaction.response.send_message(random.choice(questions))
 
-@bot.command(name="bee_quiz")
-async def bee_quiz(ctx):
+@bot.tree.command(name="bee_quiz", description="Take a random bee quiz")
+async def bee_quiz(interaction: discord.Interaction):
     q, _ = get_random_quiz()
-    await ctx.respond(q)
+    await interaction.response.send_message(q)
 
-@bot.command(name="bee_species")
-async def bee_species_cmd(ctx):
-    await ctx.respond(random.choice(bee_species))
+@bot.tree.command(name="bee_species", description="Learn about a random bee species")
+async def bee_species_cmd(interaction: discord.Interaction):
+    await interaction.response.send_message(random.choice(bee_species))
 
-@bot.command(name="ask")
-async def ask(ctx, *, question):
-    if not check_privacy_consent(str(ctx.author.id)):
-        await ctx.respond("Please use /consent to provide data consent before using BeeBot.")
+@bot.tree.command(name="ask", description="Ask BeeBot a question")
+@app_commands.describe(question="Your question to BeeBot")
+async def ask(interaction: discord.Interaction, question: str):
+    if not check_privacy_consent(str(interaction.user.id)):
+        await interaction.response.send_message("Please use /consent to provide data consent before using BeeBot.")
         return
-    await ctx.respond(ai_response(question))
+    await interaction.response.send_message(ai_response(question))
 
-@bot.command(name="bee_validate")
-async def bee_validate(ctx):
-    await ctx.respond("You're doing great! Keep buzzing!")
+@bot.tree.command(name="bee_validate", description="Get emotional validation")
+async def bee_validate(interaction: discord.Interaction):
+    await interaction.response.send_message("You're doing great! Keep buzzing!")
 
-@bot.command(name="consent")
-async def consent(ctx, choice: str):
+@bot.tree.command(name="consent", description="Manage your privacy consent")
+@app_commands.describe(choice="on, off, or info")
+async def consent(interaction: discord.Interaction, choice: str):
     if choice.lower() not in ["on", "off", "info"]:
-        await ctx.respond("Please choose: on, off, or info")
+        await interaction.response.send_message("Please choose: on, off, or info")
     elif choice.lower() == "info":
-        await ctx.respond(privacy_policy)
+        await interaction.response.send_message("This is the privacy policy.")
     else:
-        r.set(f"consent:{ctx.author.id}", choice.lower())
-        await ctx.respond(f"Consent {choice.lower()}.")
+        r.set(f"consent:{interaction.user.id}", choice.lower())
+        await interaction.response.send_message(f"Consent {choice.lower()}.")
 
-@bot.command(name="set_reminder")
-async def set_reminder(ctx, time: str, *, reminder: str):
-    await ctx.respond(f"Reminder set for {time}: {reminder}")
+@bot.tree.command(name="set_reminder", description="Set a personal reminder")
+@app_commands.describe(time="When to remind", reminder="What to remind you of")
+async def set_reminder(interaction: discord.Interaction, time: str, reminder: str):
+    await interaction.response.send_message(f"Reminder set for {time}: {reminder}")
 
-@bot.command(name="get_reminders")
-async def get_reminders(ctx):
-    await ctx.respond("Here are your reminders:")
+@bot.tree.command(name="get_reminders", description="View your active reminders")
+async def get_reminders(interaction: discord.Interaction):
+    await interaction.response.send_message("Here are your reminders:")
 
-@bot.command(name="delete_reminder")
-async def delete_reminder(ctx, index: int):
-    await ctx.respond(f"Reminder {index} deleted.")
+@bot.tree.command(name="delete_reminder", description="Delete a reminder by index")
+@app_commands.describe(index="Reminder index to delete")
+async def delete_reminder(interaction: discord.Interaction, index: int):
+    await interaction.response.send_message(f"Reminder {index} deleted.")
 
-@bot.command(name="crisis")
-async def crisis(ctx):
+@bot.tree.command(name="crisis", description="View global crisis helplines")
+async def crisis(interaction: discord.Interaction):
     help_lines = """
     🌍 **Global Crisis Support Lines**:
 
@@ -223,11 +236,11 @@ async def crisis(ctx):
 
     You are not alone. Please reach out. 💛
     """
-    await ctx.respond(help_lines)
+    await interaction.response.send_message(help_lines)
 
-@bot.command(name="bee_help")
-async def bee_help(ctx):
-    await ctx.respond("""
+@bot.tree.command(name="bee_help", description="List BeeBot commands")
+async def bee_help(interaction: discord.Interaction):
+    await interaction.response.send_message("""
     **BeeBot Commands:**
 
     `/bee_fact` - Get a random bee-related fact.
@@ -247,19 +260,19 @@ async def bee_help(ctx):
     `!announcement` - Send an announcement as BeeBot.
     """)
 
-@bot.command(name="set_version_channel")
-async def set_version_channel(ctx):
-    r.set(f"channel:version:{ctx.guild.id}", ctx.channel.id)
-    await ctx.respond(f"✅ This channel has been set as the **version** channel.")
+@bot.tree.command(name="set_version_channel", description="Set this channel as the version log")
+async def set_version_channel(interaction: discord.Interaction):
+    r.set(f"channel:version:{interaction.guild.id}", interaction.channel.id)
+    await interaction.response.send_message("✅ This channel has been set as the **version** channel.")
 
-@bot.command(name="set_announcement_channel")
-async def set_announcement_channel(ctx):
-    r.set(f"channel:announcement:{ctx.guild.id}", ctx.channel.id)
-    await ctx.respond(f"📢 This channel has been set as the **announcement** channel.")
+@bot.tree.command(name="set_announcement_channel", description="Set this channel for announcements")
+async def set_announcement_channel(interaction: discord.Interaction):
+    r.set(f"channel:announcement:{interaction.guild.id}", interaction.channel.id)
+    await interaction.response.send_message("📢 This channel has been set as the **announcement** channel.")
 
-@bot.command(name="set_error_channel")
-async def set_error_channel(ctx):
-    r.set(f"channel:error:{ctx.guild.id}", ctx.channel.id)
-    await ctx.respond(f"⚠️ This channel has been set as the **error** channel.")
+@bot.tree.command(name="set_error_channel", description="Set this channel for error messages")
+async def set_error_channel(interaction: discord.Interaction):
+    r.set(f"channel:error:{interaction.guild.id}", interaction.channel.id)
+    await interaction.response.send_message("⚠️ This channel has been set as the **error** channel.")
 
 bot.run(DISCORD_TOKEN)
