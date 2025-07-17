@@ -1,36 +1,33 @@
-BeeBot Version: 0.1.3 (Fresh Hive Build)
+BeeBot Version: 0.1.4 (Fresh Hive Build)
 Last Updated: July 17, 2025
 
-🐝 Welcome to BeeBot! This version is a fresh rebuild from scratch to address issues in earlier code and improve BeeBot’s reliability, sweetness, and buzziness.
+🐝 Welcome to BeeBot v0.1.4!  
+This update brings smarter behavior and a more dependable buzz with improved announcement delivery. BeeBot now knows exactly where to send the hive’s messages—no more guessing where the buzz should go.
 
 ---
 
-🌻 What's New:
-- Rewritten core codebase for improved performance and easier maintenance.
-- Full support for personality files, including:
-  - Affirming and empathetic responses (`personality.txt`)
-  - Mental health reflection prompts (`questions.txt`)
-  - Bee-themed jokes (`jokes.txt`)
-  - Wholesome facts (`facts.txt`)
-  - Daily fortunes and affirmations (`fortunes.txt`)
-- Structured and easy-to-update design.
-- Cleaner Redis and OpenAI integration.
-- Improved hosting reliability via Railway.
+🌻 What’s New in v0.1.4:
+- Refined `!announcement` command:
+  - ✅ Uses the configured announcement channel stored in Redis for each server.
+  - 📌 Falls back to `#announcements` if a configured channel isn’t found.
+  - 💬 Sends confirmation back to the announcer.
+  - 🐞 Improved logging and fallback handling.
+- Lays groundwork for cleaner admin tools and server-specific customization.
 
 ---
 
-🍯 What BeeBot Can Do:
-- Offer comforting, supportive responses in a warm and bee-themed tone.
-- Ask reflective questions to encourage self-awareness and healing.
-- Tell wholesome bee jokes and puns to make you smile.
-- Share fun facts about bees that educate and entertain.
-- Deliver gentle affirmations and positive messages when you're feeling low.
-- Store and recall brief interactions through Redis memory.
-- Operate privately and respectfully, with no selling or misuse of data.
+🍯 What BeeBot Can Do (Still as sweet as ever):
+- Deliver your messages to the *right* channel, every time.
+- Support bee-positive announcements with clear permission checks.
+- Continue offering kind, bee-themed companionship through:
+  - Comforting messages
+  - Gentle jokes
+  - Mental health reflections
+  - Wholesome facts and fortunes
 
 ---
 
 ✨ Status:
-This is the first version of BeeBot's *new hive*! Expect updates, polish, and new features soon. Feedback and bug reports are welcome.
+BeeBot is getting more organized, helpful, and hive-aware with each update. If you're managing multiple servers or want reliable announcements, this one’s for you. More admin-friendly features and channel config tools are coming soon. 🛠️
 
-Thanks for buzzing by and giving BeeBot another chance to make your day a little sweeter. 💛
+Thanks for buzzing with us—your presence makes the hive thrive! 💛

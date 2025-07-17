@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.3 (Fresh Hive Build)
+# BeeBot Version: 0.1.4 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -166,12 +166,18 @@ async def announcement(ctx, *, msg):
         await ctx.send(f"⛔ You need the '{ANNOUNCEMENT_ROLE_NAME}' role to make announcements.")
         return
 
-    announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+    announcement_id = r.get(f"channel:announcement:{ctx.guild.id}")
+    if announcement_id:
+        announcement_channel = bot.get_channel(int(announcement_id))
+    else:
+        announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+
     if announcement_channel:
         await announcement_channel.send(msg)
-        print(f"Announcement sent: {msg}")
+        await ctx.send("📢 Announcement sent.")
+        print(f"Announcement sent to {announcement_channel.name}: {msg}")
     else:
-        await ctx.send("⚠️ Announcement channel not found.")
+        await ctx.send("⚠️ Announcement channel not found or not configured.")
         print("Announcement failed: channel not found.")
 
 bot.run(DISCORD_TOKEN)
