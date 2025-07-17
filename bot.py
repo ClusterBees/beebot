@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.7 (Fresh Hive Build)
+# BeeBot Version: 0.1.8 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -31,6 +31,22 @@ r = redis.Redis(
     password=REDIS_PASSWORD,
     decode_responses=True
 )
+
+# Emotion detection regex map
+EMOTION_MAP = {
+    "sad": ["sad", "upset", "cry", "lonely", "depressed"],
+    "happy": ["happy", "joy", "excited", "smile"],
+    "angry": ["angry", "mad", "furious"],
+    "anxious": ["worried", "anxious", "scared", "nervous"],
+    "tired": ["tired", "exhausted", "worn out"]
+}
+
+def detect_emotion(message):
+    text = message.lower()
+    for emotion, keywords in EMOTION_MAP.items():
+        if any(word in text for word in keywords):
+            return emotion
+    return "neutral"
 
 # Intents setup
 intents = discord.Intents.default()
@@ -71,8 +87,32 @@ def get_random_quiz():
     parts = q.split('|')
     return f"{parts[0]}\nA) {parts[1]}\nB) {parts[2]}\nC) {parts[3]}", parts[4] if len(parts) == 5 else ""
 
-def ai_response(prompt):
-    print(f"AI prompt: {prompt}")
+def store_context(user_id, thread_id, message_content, limit=6):
+    key = f"context:{thread_id}:{user_id}"
+    r.lpush(key, message_content)
+    r.ltrim(key, 0, limit - 1)
+    r.expire(key, 3600)  # 1 hour expiry
+
+    # Store emotion
+    emotion = detect_emotion(message_content)
+    r.set(f"emotion:{thread_id}:{user_id}", emotion, ex=3600)
+
+def get_context(user_id, thread_id):
+    key = f"context:{thread_id}:{user_id}"
+    return r.lrange(key, 0, -1)
+
+def get_emotion(user_id, thread_id):
+    return r.get(f"emotion:{thread_id}:{user_id}") or "neutral"
+
+def ai_response(prompt, user_id=None, channel_id=None):
+    thread_id = channel_id or "general"
+    context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
+    emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
+
+    context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
+    full_prompt = f"User seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else prompt
+
+    print(f"AI prompt: {full_prompt}")
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             print("Prompt contains banned phrase.")
@@ -81,8 +121,8 @@ def ai_response(prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": personality},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": personality},  # <-- This loads BeeBot’s personality
+            {"role": "user", "content": full_prompt}
         ]
     )
     reply = response.choices[0].message.content.strip()
@@ -144,9 +184,11 @@ async def on_message(message):
 
     print(f"Received message in #{message.channel}: {message.content}")
     user_id = str(message.author.id)
+    thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
     if not check_privacy_consent(user_id):
         await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
         return
+    store_context(user_id, thread_id, message.content)
 
     channel = message.channel
     channel_key = f"autoreply:{channel.id}"
@@ -159,7 +201,7 @@ async def on_message(message):
             await bot.process_commands(message)
         else:
             print("AI response triggered...")
-            reply = ai_response(message.content)
+            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
             await message.channel.send(reply)
 
 # Slash commands
@@ -369,5 +411,28 @@ async def announce(interaction: Interaction, message: str):
     except discord.HTTPException as e:
         await interaction.followup.send("⚠️ Failed to send the announcement due to an error.", ephemeral=True)
         print(f"Announcement error: {e}")
+
+@bot.tree.command(name="debug_context", description="View recent context and emotion")
+@app_commands.describe(target="Mention a user to inspect")
+async def debug_context(interaction: Interaction, target: discord.User):
+    thread_id = str(interaction.channel.id if not isinstance(interaction.channel, discord.Thread) else interaction.channel.parent_id)
+    context = get_context(str(target.id), thread_id)
+    emotion = get_emotion(str(target.id), thread_id)
+    if not context:
+        await interaction.response.send_message(f"No context found for {target.mention}.", ephemeral=True)
+    else:
+        msg_log = "\n".join([f"- {m}" for m in reversed(context)])
+        await interaction.response.send_message(
+            f"🧠 **Context for {target.mention}**\n```\n{msg_log}\n```\n❤️ Emotion: **{emotion}**",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="clear_context", description="Clear context memory for a user")
+@app_commands.describe(target="Mention a user to clear")
+async def clear_context(interaction: Interaction, target: discord.User):
+    thread_id = str(interaction.channel.id if not isinstance(interaction.channel, discord.Thread) else interaction.channel.parent_id)
+    r.delete(f"context:{thread_id}:{target.id}")
+    r.delete(f"emotion:{thread_id}:{target.id}")
+    await interaction.response.send_message(f"🧹 Cleared context and emotion for {target.mention}.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)

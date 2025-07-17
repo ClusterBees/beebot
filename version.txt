@@ -1,28 +1,46 @@
-🐝 BeeBot Update: v0.1.7 is Live!
-Version: 0.1.7 (Fresh Hive Build)
+🐝 BeeBot Update: v0.1.8 is Live!
+Version: 0.1.8 (Contextual Memory Build)
 Date: July 17, 2025
 
-BeeBot just got a little smarter in the hive. This update improves how BeeBot handles conversations in dynamic threads — especially inside forums.
+BeeBot just got a major brain upgrade. This build introduces contextual memory, emotion detection, and smarter AI prompts, bringing BeeBot closer to a real conversational companion.
 
-🔧 What’s New in v0.1.7
-💬 Auto-Reply Now Works in Threads by Default
-• BeeBot will respond to all messages in threads, even if /autoreply hasn’t been explicitly enabled
-• Works for forum post threads, standard threads, and temporary discussion channels
-• Prevents confusion when users start new threads expecting BeeBot to reply
+🔧 What’s New in v0.1.8
 
-🤖 More Conversational Behavior
-• BeeBot now responds to all non-command messages in autoreply-enabled channels, not just questions
-• Makes BeeBot feel more responsive and natural in chat
+🧠 Context Memory per User per Thread
 
-🧠 Reminder:
-You can still toggle auto-reply with:
+BeeBot now stores recent messages per user in each thread or channel
 
-bash
-Copy
-Edit
-/autoreply on
-/autoreply off
+Uses Redis to save up to 6 messages per user per context for 1 hour
+
+Enables more natural AI replies by recalling prior conversation snippets
+
+💛 Emotion Detection Added
+
+Detects user emotion (happy, sad, angry, anxious, tired, or neutral) based on keywords
+
+AI prompts include detected emotion to respond with better empathy
+
+🤖 Smarter AI Responses
+
+AI now includes context memory and emotion in prompts
+
+Rejects banned phrases dynamically, as before
+
+🔍 New Slash Commands
+
+/debug_context — View a user’s recent context and detected emotion
+
+/clear_context — Clear a user’s context and emotion data
+
+📦 Backend Improvements
+
+Added helper functions for context storage, retrieval, and emotion detection
+
+Updated ai_response() to integrate context and emotion dynamically
+
 ✨ Status:
-This version smooths out BeeBot’s presence in forums and sets the stage for smarter context-aware replies in future releases. Stay tuned — and keep buzzing! 🐝💛
+This version lays the groundwork for BeeBot’s future emotional intelligence modules and smarter, memory-aware conversations. The hive just got more thoughtful.
+
+Stay tuned – and keep buzzing! 🐝💛
 
 – The BeeBot Dev Team
