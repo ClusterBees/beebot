@@ -158,6 +158,39 @@ async def on_message(message):
             reply = ai_response(message.content)
             await message.channel.send(reply)
 
+@bot.tree.command(name="autoreply", description="Enable or disable AI auto-reply in this channel.")
+@app_commands.describe(mode="Set auto-reply mode to 'on' or 'off'. Leave blank to check status.")
+async def autoreply(interaction: discord.Interaction, mode: str = None):
+    channel = interaction.channel
+    channel_id = str(channel.id)
+    channel_key = f"autoreply:{channel_id}"
+
+    # If no mode is given, show current status
+    if mode is None:
+        value = r.get(channel_key)
+
+        if value:
+            status = value
+        else:
+            # Default: ON in threads, OFF otherwise
+            status = "on" if isinstance(channel, discord.Thread) else "off"
+
+        await interaction.response.send_message(
+            f"💬 Auto-reply is currently **{status}** in this channel.",
+            ephemeral=True
+        )
+        return
+
+    # Normalize and validate mode input
+    mode = mode.lower()
+    if mode not in ["on", "off"]:
+        await interaction.response.send_message("⚠️ Mode must be either `on` or `off`.", ephemeral=True)
+        return
+
+    r.set(channel_key, mode)
+    print(f"Auto-reply set to {mode} for channel {channel.name} ({channel.id})")
+    await interaction.response.send_message(f"✅ Auto-reply has been turned **{mode}** in this channel.")
+
 @bot.command(name="announcement")
 async def announcement(ctx, *, msg):
     print(f"Attempting announcement by {ctx.author.name} in {ctx.guild.name}")
