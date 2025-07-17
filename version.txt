@@ -1,33 +1,52 @@
-BeeBot Version: 0.1.4 (Fresh Hive Build)
+BeeBot Version: 0.1.5 (Fresh Hive Build)
 Last Updated: July 17, 2025
 
-🐝 Welcome to BeeBot v0.1.4!  
-This update brings smarter behavior and a more dependable buzz with improved announcement delivery. BeeBot now knows exactly where to send the hive’s messages—no more guessing where the buzz should go.
+🐝 Welcome to BeeBot v0.1.5!
+This version rolls out shiny new slash commands and embedded messaging to make BeeBot easier to use, more beautiful, and more reliable across your hives.
 
----
+🌻 What’s New in v0.1.5:
 
-🌻 What’s New in v0.1.4:
-- Refined `!announcement` command:
-  - ✅ Uses the configured announcement channel stored in Redis for each server.
-  - 📌 Falls back to `#announcements` if a configured channel isn’t found.
-  - 💬 Sends confirmation back to the announcer.
-  - 🐞 Improved logging and fallback handling.
-- Lays groundwork for cleaner admin tools and server-specific customization.
+✅ New /announce slash command
+• Sends announcements as rich Discord embeds
+• Uses the Redis-configured announcement channel
+• Only accessible to users with the Bee Announcer role
+• Includes robust error handling and feedback
 
----
+💬 Auto-reply upgraded to slash command /autoreply
+• Toggle AI replies per-channel
+• View current status any time
+• Auto-enabled in threads by default (OFF elsewhere unless set)
 
-🍯 What BeeBot Can Do (Still as sweet as ever):
-- Deliver your messages to the *right* channel, every time.
-- Support bee-positive announcements with clear permission checks.
-- Continue offering kind, bee-themed companionship through:
-  - Comforting messages
-  - Gentle jokes
-  - Mental health reflections
-  - Wholesome facts and fortunes
+🔧 Improved fallback logic
+• Falls back to #announcements if no channel is configured
+• Fetches channels directly from the API to avoid cache misses
 
----
+🐛 Bugfixes and quality improvements
+• Fixed issues with announcements silently failing
+• Smarter role checks and channel resolution
+• Cleaner logging and user feedback
+
+🍯 What BeeBot Can Do:
+
+Post beautiful, embedded announcements to the right channels
+
+Automatically respond to user questions in approved spaces
+
+Support your community with:
+
+Kind, affirming bee-themed messages
+
+Reflective mental health prompts
+
+Silly jokes and uplifting facts
+
+Sweet daily affirmations
+
+Stay respectful of privacy — no tracking, no sales, no nonsense
 
 ✨ Status:
-BeeBot is getting more organized, helpful, and hive-aware with each update. If you're managing multiple servers or want reliable announcements, this one’s for you. More admin-friendly features and channel config tools are coming soon. 🛠️
+BeeBot’s hive is growing strong. With these slash commands and embed tools, we’re laying the groundwork for even better moderation, automation, and community care.
 
-Thanks for buzzing with us—your presence makes the hive thrive! 💛
+Thanks for buzzing with us. Let’s keep this hive humming. 💛
+
+– The BeeBot Dev Team

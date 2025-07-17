@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.4 (Fresh Hive Build)
+# BeeBot Version: 0.1.5 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -191,37 +191,56 @@ async def autoreply(interaction: discord.Interaction, mode: str = None):
     print(f"Auto-reply set to {mode} for channel {channel.name} ({channel.id})")
     await interaction.response.send_message(f"✅ Auto-reply has been turned **{mode}** in this channel.")
 
-@bot.command(name="announcement")
-async def announcement(ctx, *, msg):
-    print(f"Attempting announcement by {ctx.author.name} in {ctx.guild.name}")
-    role = discord.utils.get(ctx.author.roles, name=ANNOUNCEMENT_ROLE_NAME)
+@bot.tree.command(name="announce", description="Send an announcement to the configured announcement channel.")
+@app_commands.describe(message="The message you want to announce.")
+async def announce(interaction: Interaction, message: str):
+    await interaction.response.defer(ephemeral=True)
+
+    guild = interaction.guild
+    member = interaction.user
+    role = discord.utils.get(member.roles, name=ANNOUNCEMENT_ROLE_NAME)
+
     if not role:
-        await ctx.send(f"⛔ You need the '{ANNOUNCEMENT_ROLE_NAME}' role to make announcements.")
+        await interaction.followup.send(
+            f"⛔ You need the `{ANNOUNCEMENT_ROLE_NAME}` role to use this command.",
+            ephemeral=True
+        )
         return
 
     try:
-        announcement_id = r.get(f"channel:announcement:{ctx.guild.id}")
-        print(f"Channel ID from Redis: {announcement_id}")
+        announcement_id = r.get(f"channel:announcement:{guild.id}")
+        print(f"Redis announcement channel ID: {announcement_id}")
 
         if announcement_id:
             announcement_channel = await bot.fetch_channel(int(announcement_id))
         else:
-            announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+            announcement_channel = discord.utils.get(guild.text_channels, name="announcements")
 
-        print(f"Resolved channel: {announcement_channel}")
+        if not announcement_channel:
+            await interaction.followup.send(
+                "⚠️ Could not find an announcement channel.",
+                ephemeral=True
+            )
+            return
 
-        if announcement_channel:
-            await announcement_channel.send(msg)
-            await ctx.send("📢 Announcement sent.")
-            print(f"Announcement sent to {announcement_channel.name}: {msg}")
-        else:
-            await ctx.send("⚠️ Announcement channel not found or not configured.")
-            print("Announcement failed: channel not found.")
+        # Create embed
+        embed = Embed(
+            title="📢 Announcement",
+            description=message,
+            color=discord.Color.gold()
+        )
+        embed.set_footer(text=f"Posted by {member.display_name}", icon_url=member.display_avatar.url)
+        embed.timestamp = discord.utils.utcnow()
+
+        await announcement_channel.send(embed=embed)
+        await interaction.followup.send("✅ Announcement sent!", ephemeral=True)
+        print(f"Sent announcement to #{announcement_channel.name} in {guild.name}: {message}")
+
     except discord.Forbidden:
-        await ctx.send("❌ I don't have permission to send messages in the announcement channel.")
-        print("Failed to send: Forbidden")
+        await interaction.followup.send("❌ I don't have permission to send messages in that channel.", ephemeral=True)
+        print("Announcement failed: Forbidden")
     except discord.HTTPException as e:
-        await ctx.send("⚠️ Failed to send announcement due to a Discord error.")
-        print(f"HTTP error while sending announcement: {e}")
+        await interaction.followup.send("⚠️ Failed to send the announcement due to an error.", ephemeral=True)
+        print(f"Announcement error: {e}")
 
 bot.run(DISCORD_TOKEN)
