@@ -153,7 +153,7 @@ async def on_message(message):
         if message.content.startswith("!"):
             print("Processing command...")
             await bot.process_commands(message)
-        elif message.content.endswith("?"):
+        else:
             print("AI response triggered...")
             reply = ai_response(message.content)
             await message.channel.send(reply)
