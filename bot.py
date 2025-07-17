@@ -1,4 +1,4 @@
-# bot.py
+# BeeBot Version: 0.1.2 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from openai import OpenAI
@@ -112,55 +112,55 @@ async def on_message(message):
             reply = ai_response(message.content)
             await message.channel.send(reply)
 
-@bot.command()
+@bot.add_command()
 async def announcement(ctx, *, msg):
     announcement_channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
     if announcement_channel:
         await announcement_channel.send(msg)
 
 # Slash commands via discord.ext.commands
-@bot.command(name="bee_fact")
+@bot.add_command(name="bee_fact")
 async def bee_fact(ctx):
     await ctx.send(random.choice(facts))
 
-@bot.command(name="bee_fortune")
+@bot.add_command(name="bee_fortune")
 async def bee_fortune(ctx):
     await ctx.send(random.choice(fortunes))
 
-@bot.command(name="bee_joke")
+@bot.add_command(name="bee_joke")
 async def bee_joke(ctx):
-    await ctx.respond(random.choice(jokes))
+    await ctx.send(random.choice(jokes))
 
-@bot.command(name="bee_name")
+@bot.add_command(name="bee_name")
 async def bee_name(ctx):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
     await ctx.respond(name)
 
-@bot.command(name="bee_question")
+@bot.add_command(name="bee_question")
 async def bee_question(ctx):
     await ctx.respond(random.choice(questions))
 
-@bot.slash_command(name="bee_quiz")
+@bot.add_command(name="bee_quiz")
 async def bee_quiz(ctx):
     q, _ = get_random_quiz()
     await ctx.respond(q)
 
-@bot.slash_command(name="bee_species")
+@bot.add_command(name="bee_species")
 async def bee_species_cmd(ctx):
     await ctx.respond(random.choice(bee_species))
 
-@bot.slash_command(name="ask")
+@bot.add_command(name="ask")
 async def ask(ctx, *, question):
     if not check_privacy_consent(str(ctx.author.id)):
         await ctx.respond("Please use /consent to provide data consent before using BeeBot.")
         return
     await ctx.respond(ai_response(question))
 
-@bot.slash_command(name="bee_validate")
+@bot.add_command(name="bee_validate")
 async def bee_validate(ctx):
     await ctx.respond("You're doing great! Keep buzzing!")
 
-@bot.slash_command(name="consent")
+@bot.add_command(name="consent")
 async def consent(ctx, choice: str):
     if choice.lower() not in ["on", "off", "info"]:
         await ctx.respond("Please choose: on, off, or info")
@@ -171,22 +171,22 @@ async def consent(ctx, choice: str):
         await ctx.respond(f"Consent {choice.lower()}.")
 
 # Reminder commands (implementation stubbed)
-@bot.slash_command(name="set_reminder")
+@bot.add_command(name="set_reminder")
 async def set_reminder(ctx, time: str, *, reminder: str):
     await ctx.respond(f"Reminder set for {time}: {reminder}")
     # Store to Redis with a timestamp
 
-@bot.slash_command(name="get_reminders")
+@bot.add_command(name="get_reminders")
 async def get_reminders(ctx):
     await ctx.respond("Here are your reminders:")
     # Fetch from Redis
 
-@bot.slash_command(name="delete_reminder")
+@bot.add_command(name="delete_reminder")
 async def delete_reminder(ctx, index: int):
     await ctx.respond(f"Reminder {index} deleted.")
     # Delete from Redis
 
-@bot.slash_command(name="crisis")
+@bot.add_command(name="crisis")
 async def crisis(ctx):
     help_lines = """
     🌍 **Global Crisis Support Lines**:
@@ -203,7 +203,7 @@ async def crisis(ctx):
     """
     await ctx.respond(help_lines)
 
-@bot.slash_command(name="bee_help")
+@bot.add_command(name="bee_help")
 async def bee_help(ctx):
     await ctx.respond("""
     **BeeBot Commands:**
