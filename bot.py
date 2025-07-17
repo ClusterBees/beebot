@@ -1,4 +1,4 @@
-BeeBot_version = "4.0.2"
+BeeBot_version = "4.0.3"
 import os
 import random
 import asyncio
@@ -54,50 +54,43 @@ def parse_duration(duration_str: str) -> int:
     raise ValueError("Invalid duration format")
 
 # Utility functions
-def enable_auto_reply(channel_id: int):
-    db.sadd(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
 
-def disable_auto_reply(channel_id: int):
-    db.srem(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
+class RedisSetManager:
+    def __init__(self, key):
+        self.key = key
 
-def is_auto_reply_enabled(channel_id: int) -> bool:
-    return db.sismember(AUTO_REPLY_CHANNELS_KEY, str(channel_id))
+    def add(self, value):
+        db.sadd(self.key, str(value))
 
-def grant_universal_consent(user_id: int):
-    db.sadd(UNIVERSAL_CONSENT_KEY, str(user_id))
+    def remove(self, value):
+        db.srem(self.key, str(value))
 
-def revoke_universal_consent(user_id: int):
-    db.srem(UNIVERSAL_CONSENT_KEY, str(user_id))
+    def contains(self, value):
+        return db.sismember(self.key, str(value))
 
-def has_universal_consent(user_id: int) -> bool:
-    return db.sismember(UNIVERSAL_CONSENT_KEY, str(user_id))
+auto_reply_channels = RedisSetManager(AUTO_REPLY_CHANNELS_KEY)
+universal_consent = RedisSetManager(UNIVERSAL_CONSENT_KEY)
 
-# Load content files
-def load_lines(filename):
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
-    return []
-
-def load_quiz_questions(filename):
-    questions = []
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f if line.strip()]
-            for i in range(0, len(lines) - 1, 2):
-                questions.append({"question": lines[i], "answer": lines[i+1], "options": []})
-    return questions
-
+def load_file_lines(filename, pairwise=False):
+    path = Path(filename)
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+        if pairwise:
+            return [{"question": lines[i], "answer": lines[i+1], "options": []}
+                    for i in range(0, len(lines) - 1, 2)]
+        return lines
 BEE_PERSONALITY = open("bee_personality.txt", encoding="utf-8").read()
-BEEBOT_NEVER_SAY = load_lines("beebot_never_say.txt")
-BEE_FACTS = load_lines("bee_facts.txt")
-BEE_QUESTIONS = load_lines("bee_questions.txt")
-BEE_JOKES = load_lines("bee_jokes.txt")
-BEE_NAME_PREFIXES = load_lines("bee_name_prefixes.txt")
-BEE_NAME_SUFFIXES = load_lines("bee_name_suffixes.txt")
-BEE_FORTUNES = load_lines("bee_fortunes.txt")
-BEE_QUIZZES = load_quiz_questions("bee_quiz.txt")
-BEE_SPECIES = load_lines("bee_species.txt")
+BEEBOT_NEVER_SAY = load_file_lines("beebot_never_say.txt")
+BEE_FACTS = load_file_lines("bee_facts.txt")
+BEE_QUESTIONS = load_file_lines("bee_questions.txt")
+BEE_JOKES = load_file_lines("bee_jokes.txt")
+BEE_NAME_PREFIXES = load_file_lines("bee_name_prefixes.txt")
+BEE_NAME_SUFFIXES = load_file_lines("bee_name_suffixes.txt")
+BEE_FORTUNES = load_file_lines("bee_fortunes.txt")
+BEE_QUIZZES = lambda f: load_file_lines(f, pairwise=True)("bee_quiz.txt")
+BEE_SPECIES = load_file_lines("bee_species.txt")
 
 # AI response
 def format_prompt(user_input):
@@ -134,9 +127,6 @@ async def on_ready():
                 ))
             except Exception as e:
                 print(f"❌ Failed to reschedule {key} with data {db.get(key)}: {e}")
-
-@bot.event
-async def on_ready():
     version_channel = bot.get_channel(version_channel_id := db.get(f"guild:{bot.guilds[0].id}:version_channel"))
     if version_channel:
         with open("version.txt", "r") as f:
@@ -440,3 +430,18 @@ async def set_error_channel(interaction: discord.Interaction):
     await interaction.response.send_message("✅ This channel is now set to receive error logs.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
+
+
+
+@bot.tree.command(name="auto_reply", description="Toggle auto reply on or off for this channel.")
+@app_commands.describe(option="Turn auto reply On or Off.")
+async def auto_reply(interaction: discord.Interaction, option: str):
+    channel_id = interaction.channel.id
+    if option.lower() == "on":
+        enable_auto_reply(channel_id)
+        await interaction.response.send_message("Auto-reply enabled for this channel.")
+    elif option.lower() == "off":
+        disable_auto_reply(channel_id)
+        await interaction.response.send_message("Auto-reply disabled for this channel.")
+    else:
+        await interaction.response.send_message("Invalid option. Use 'on' or 'off'.")
