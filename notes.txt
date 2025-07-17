@@ -1,0 +1,72 @@
+Beebot version here
+
+imports (most recent version of open ai should be loaded here)
+
+load environment here
+(openai_api_key)
+(discord token)
+
+redis setup to remember things that persist
+    autoreply channels (auto reply is default off)
+    announcement channel per server
+    a channel that auto posts version notes on launch per server
+    a channel that logs errors for debug per server
+    Privacy Consent (per user but not per server)
+    Reminders (per user)
+
+Intents
+
+Time duration setup here for later use in a reminder system
+
+load text files
+    facts.txt
+    fortunes.txt
+    jokes.txt
+    prefixes.txt
+    suffixes.txt
+    personality.txt (should be used as context for the ai prompt)
+    questions.txt
+    quiz.txt
+    bee_species.txt
+    banned_phrases.txt
+    version.txt
+
+have the quiz questions loaded here, the quiz is multiple choice (A,B,C) and should have a hidden answer
+
+AI response that pulls from personality.txt to know what to say and banned_phrases.txt for things that must never be said. uses the most recent version of chat gpt
+
+on ready:
+    - print a log in confirmation
+    - load reminders users have set saved to redis
+    - load settings saved to redis
+    - verify that there is a channel for errors, version notes, and announcements, if not create them
+    - send version.txt as a message to the version channel
+    - send a message to the announcement channel that the bot is online
+
+on message:
+    - Check user privacy consent status
+    - if the user has not consented, send a message asking for consent
+    - then check if the channel is an autoreply channel
+        - if it is process the message
+        - if the message is from a bot, ignore it
+        - if the message is a command, process it
+        - if the message is a question, use the AI to respond
+
+!announcement command that copies input to the announcement channel as if it is from the bot
+Slash commands:
+    - bee_fact that returns a random fact from facts.txt
+    - bee_fortune that returns a random fortune from fortunes.txt
+    - bee_joke that returns a random joke from jokes.txt
+    - bee_name that returns a random bee name from prefixes.txt and suffixes.txt
+    - bee_question that returns a thought provoking question from questions.txt
+    - bee_quiz that returns a random quiz question from quiz.txt
+    - bee_species that returns a random bee species from bee_species.txt
+    - ask that uses the AI to answer a question
+    - bee_validate that sends a validating message to the user
+    - consent that asks the user for privacy consent (allowing sending input back to openai as a third party) offering options for on off or info
+    - set_reminder that sets a reminder for the user
+    - get_reminders that gets the user's reminders
+    - delete_reminder that deletes a reminder for the user
+    - bee_help that returns a help message with all commands
+
+run bot

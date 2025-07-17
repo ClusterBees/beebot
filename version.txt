@@ -1,34 +1,36 @@
-🐝 BeeBot Version 4.0.0 – July 16, 2025
+BeeBot Version: 0.1.0 (Fresh Hive Build)
+Last Updated: July 17, 2025
 
-✅ Major Features Added
------------------------
-- Reminders System:
-  • /remind — Set reminders with time formats like 10m, 2h, 1d
-  • /list_reminders — View your active reminders
-  • /cancel_reminder — Cancel reminders using their ID
-  • Reminders are persistent and automatically reschedule on bot startup
+🐝 Welcome to BeeBot! This version is a fresh rebuild from scratch to address issues in earlier code and improve BeeBot’s reliability, sweetness, and buzziness.
 
-- Consent Management:
-  • /consent_set — Grant, revoke, or view info about consent
-  • Integrated full privacy policy via `/consent_set option: Info`
+---
 
-- Auto-Reply & Channel Controls:
-  • /set_autoreply — Enable or disable auto-replies per channel
-  • /set_version_channel — Designate a channel to receive version updates
-  • /set_announcement_channel — Designate a channel to receive announcements
+🌻 What's New:
+- Rewritten core codebase for improved performance and easier maintenance.
+- Full support for personality files, including:
+  - Affirming and empathetic responses (`personality.txt`)
+  - Mental health reflection prompts (`questions.txt`)
+  - Bee-themed jokes (`jokes.txt`)
+  - Wholesome facts (`facts.txt`)
+  - Daily fortunes and affirmations (`fortunes.txt`)
+- Structured and easy-to-update design.
+- Cleaner Redis and OpenAI integration.
+- Improved hosting reliability via Railway.
 
-🔐 Privacy Enhancements
-------------------------
-- Full BeeBot Privacy Policy included:
-  • BeeBot will NEVER sell your data
-  • BeeBot will NEVER use your data for advertising or marketing
-  • Only stores necessary info to power features (e.g. reminders, consent, settings)
-  • Policy shown via `/consent_set` > Info
+---
 
-🎉 Other Improvements
-----------------------
-- Expanded slash commands for:
-  • Bee names, species, facts, jokes, fortunes, validation, quizzes
-  • /ask — Chat directly with BeeBot using OpenAI
-- Improved Redis-backed persistence for settings and user preferences
-- More structured, contextual OpenAI responses using GPT-3.5 Turbo
+🍯 What BeeBot Can Do:
+- Offer comforting, supportive responses in a warm and bee-themed tone.
+- Ask reflective questions to encourage self-awareness and healing.
+- Tell wholesome bee jokes and puns to make you smile.
+- Share fun facts about bees that educate and entertain.
+- Deliver gentle affirmations and positive messages when you're feeling low.
+- Store and recall brief interactions through Redis memory.
+- Operate privately and respectfully, with no selling or misuse of data.
+
+---
+
+✨ Status:
+This is the first version of BeeBot's *new hive*! Expect updates, polish, and new features soon. Feedback and bug reports are welcome.
+
+Thanks for buzzing by and giving BeeBot another chance to make your day a little sweeter. 💛

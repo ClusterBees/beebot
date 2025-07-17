@@ -1,0 +1,45 @@
+🛡️ BeeBot Privacy Policy
+
+Last updated: July 17, 2025
+Buzz buzz! Your privacy matters to us. 🐝💛
+
+This privacy policy explains how BeeBot handles your data. We keep things simple, honest, and sweet — like honey in the hive.
+
+🌻 What We Collect
+
+When you interact with BeeBot, we may collect the things you type (your messages and commands). We only collect what BeeBot needs to keep buzzing properly and support you as kindly and smoothly as possible.
+
+🍯 Where Your Data Goes
+
+To help BeeBot do its job, your messages may be sent to the following services:
+
+- Redis – used to temporarily store and remember things BeeBot needs to respond better.
+- GitHub – used only if you're using BeeBot in a connected development project (e.g. for logs, bot updates, or file storage).
+- Railway – used to host BeeBot and keep the hive running smoothly in the cloud.
+- OpenAI – used to help BeeBot understand and respond to your messages with kindness and care.
+
+We only send what's necessary for BeeBot to function — nothing more.
+
+🚫 What We Never Do
+
+- We never sell your data.
+- We never use your input for advertising.
+- We never share your messages with third parties beyond the services listed above.
+- We don’t build user profiles or track you beyond your interactions with BeeBot.
+
+You’re a sweet honeybee, not a product.
+
+🔐 How We Protect You
+
+We take reasonable steps to protect the information you share with BeeBot, including using secure connections and limiting access to trusted systems and people. We do not store your data permanently unless needed for BeeBot’s memory functions (and even then, only with care and intention).
+
+🐝 Your Control
+
+You can stop using BeeBot at any time. If you ever want your stored information deleted (if applicable), just buzz us and we’ll do our best to clear your data from the hive.
+
+✨ In Short
+
+BeeBot uses your messages only to be helpful and supportive. We treat your input with respect and never use it for anything unrelated to keeping BeeBot running sweetly. Your trust is sacred here.
+
+If you have questions, concerns, or just want to say hi, feel free to buzz us anytime.
+Thanks for being part of the hive. 💛
