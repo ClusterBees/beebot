@@ -150,18 +150,28 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
-    if isinstance(message.channel, discord.Thread) or (has_universal_consent(message.author.id) and is_auto_reply_enabled(message.channel.id)):
-        response = await generate_bee_response(message.content)
-        await message.channel.send(response)
-    elif message.content.strip().lower() in ["/consent", "/consent_set"]:
-        return
-    else:
-        await message.channel.send(
-            "👋 To chat with me, use `/consent_set` and turn it **On**."
-        )
 
-# Slash commands
-@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
+    # Check if it's in a thread
+    is_thread = message.channel.type == discord.ChannelType.public_thread or \
+                message.channel.type == discord.ChannelType.private_thread
+
+    redis_key = f"auto_reply:{message.channel.id}"
+    auto_reply = await redis.get(redis_key)
+
+    # Determine if we should reply
+    should_reply = False
+
+    if auto_reply == b'on':
+        should_reply = True
+    elif auto_reply is None and is_thread:
+        # Default to on in threads only
+        should_reply = True
+
+    if not should_reply:
+        return
+
+    # Proceed with your normal reply logic here
+    await message.channel.send("This is an auto reply!")  # Replace with actual reply logic@bot.tree.command(name="bee_fact", description="Get a fun bee fact!")
 async def bee_fact(interaction: discord.Interaction):
     fact = random.choice(BEE_FACTS) if BEE_FACTS else "🐝 Bees are amazing!"
     await interaction.response.send_message(fact)
@@ -377,7 +387,6 @@ async def set_version_channel(interaction: discord.Interaction):
     db.set(VERSION_CHANNEL_KEY, interaction.channel.id)
     await interaction.response.send_message("✅ Version channel has been set.", ephemeral=True)
     return
-
     key = f"guild:{interaction.guild.id}:version_channel"
     db.set(key, interaction.channel.id)
     await interaction.response.send_message(f"✅ This channel is now set to receive version updates.", ephemeral=True)
