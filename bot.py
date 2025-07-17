@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.8 (Fresh Hive Build)
+# 🐝 BeeBot v0.1.8 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -32,6 +32,10 @@ r = redis.Redis(
     decode_responses=True
 )
 
+# BeeBot-style logging function
+def bee_log(message):
+    print(f"🐝 [BeeBot Log] {message}")
+
 # Emotion detection regex map
 EMOTION_MAP = {
     "sad": ["sad", "upset", "cry", "lonely", "depressed"],
@@ -45,6 +49,7 @@ def detect_emotion(message):
     text = message.lower()
     for emotion, keywords in EMOTION_MAP.items():
         if any(word in text for word in keywords):
+            bee_log(f"Detected emotion: {emotion} from message: '{message}'")
             return emotion
     return "neutral"
 
@@ -63,7 +68,9 @@ bot = BeeBot(command_prefix="!", intents=intents)
 # Load text files
 def load_lines(filename):
     with open(filename, 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
+        lines = [line.strip() for line in f if line.strip()]
+        bee_log(f"Loaded {len(lines)} lines from {filename}")
+        return lines
 
 facts = load_lines("facts.txt")
 fortunes = load_lines("fortunes.txt")
@@ -72,6 +79,7 @@ prefixes = load_lines("prefixes.txt")
 suffixes = load_lines("suffixes.txt")
 with open("personality.txt", "r", encoding="utf-8") as f:
     personality = f.read().strip()
+    bee_log("Personality loaded from personality.txt")
 questions = load_lines("questions.txt")
 quiz_questions = load_lines("quiz.txt")
 bee_species = load_lines("bee_species.txt")
@@ -80,7 +88,9 @@ version_text = "\n".join(load_lines("version.txt"))
 
 # Helper functions
 def check_privacy_consent(user_id):
-    return r.get(f"consent:{user_id}") == "on"
+    consent = r.get(f"consent:{user_id}") == "on"
+    bee_log(f"Privacy consent check for {user_id}: {consent}")
+    return consent
 
 def get_random_quiz():
     q = random.choice(quiz_questions)
@@ -91,18 +101,20 @@ def store_context(user_id, thread_id, message_content, limit=6):
     key = f"context:{thread_id}:{user_id}"
     r.lpush(key, message_content)
     r.ltrim(key, 0, limit - 1)
-    r.expire(key, 3600)  # 1 hour expiry
-
-    # Store emotion
+    r.expire(key, 3600)
     emotion = detect_emotion(message_content)
     r.set(f"emotion:{thread_id}:{user_id}", emotion, ex=3600)
+    bee_log(f"Stored context and emotion ({emotion}) for user {user_id} in thread {thread_id}")
 
 def get_context(user_id, thread_id):
-    key = f"context:{thread_id}:{user_id}"
-    return r.lrange(key, 0, -1)
+    context = r.lrange(f"context:{thread_id}:{user_id}", 0, -1)
+    bee_log(f"Fetched context for {user_id} in thread {thread_id}: {context}")
+    return context
 
 def get_emotion(user_id, thread_id):
-    return r.get(f"emotion:{thread_id}:{user_id}") or "neutral"
+    emotion = r.get(f"emotion:{thread_id}:{user_id}") or "neutral"
+    bee_log(f"Fetched emotion for {user_id} in thread {thread_id}: {emotion}")
+    return emotion
 
 def ai_response(prompt, user_id=None, channel_id=None):
     thread_id = channel_id or "general"
@@ -112,80 +124,49 @@ def ai_response(prompt, user_id=None, channel_id=None):
     context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
     full_prompt = f"User seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else prompt
 
-    print(f"AI prompt: {full_prompt}")
+    bee_log(f"Preparing AI prompt: {full_prompt}")
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
-            print("Prompt contains banned phrase.")
+            bee_log("Prompt blocked due to banned phrase.")
             return "I'm not allowed to discuss that topic."
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": personality},  # <-- This loads BeeBot’s personality
-            {"role": "user", "content": full_prompt}
-        ]
-    )
-    reply = response.choices[0].message.content.strip()
-    print(f"AI response: {reply}")
-    return reply
-
-def parse_duration(time_str):
-    match = re.fullmatch(r"(\d+)([smhd]?)", time_str.strip().lower())
-    if not match:
-        return None
-    value, unit = match.groups()
-    value = int(value)
-    if unit == "s" or unit == "":
-        return value
-    elif unit == "m":
-        return value * 60
-    elif unit == "h":
-        return value * 3600
-    elif unit == "d":
-        return value * 86400
-    return None
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": personality},
+                {"role": "user", "content": full_prompt}
+            ]
+        )
+        reply = response.choices[0].message.content.strip()
+        bee_log(f"BeeBot's response: {reply}")
+        return reply
+    except Exception as e:
+        bee_log(f"Oh no! An error happened while generating AI response: {e}")
+        for guild in bot.guilds:
+            error_id = r.get(f"channel:error:{guild.id}")
+            if error_id:
+                channel = bot.get_channel(int(error_id))
+                if channel:
+                    asyncio.create_task(channel.send(f"⚠️ AI error: {e}"))
+        return "Oops! My wings got tangled while thinking. Try again soon!"
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name}")
+    bee_log(f"Buzz buzz! I just logged in as {bot.user.name}! I'm ready to fly! 🎉")
     synced = await bot.tree.sync()
-    print(f"Synced {len(synced)} slash commands globally.")
+    bee_log(f"Synced {len(synced)} slash commands globally!")
     for guild in bot.guilds:
-        version_id = r.get(f"channel:version:{guild.id}")
-        announcement_id = r.get(f"channel:announcement:{guild.id}")
-        error_id = r.get(f"channel:error:{guild.id}")
-
-        version_channel = bot.get_channel(int(version_id)) if version_id else None
-        announcement_channel = bot.get_channel(int(announcement_id)) if announcement_id else None
-        error_channel = bot.get_channel(int(error_id)) if error_id else None
-
-        if version_channel:
-            await version_channel.send(version_text)
-        if announcement_channel:
-            await announcement_channel.send("BeeBot is online!")
-        if error_channel:
-            await error_channel.send("⚠️ BeeBot has restarted and is active.")
-
-        for channel_name in ["errors", "version", "announcements"]:
-            if not discord.utils.get(guild.text_channels, name=channel_name):
-                await guild.create_text_channel(channel_name)
-
-@bot.event
-async def on_guild_join(guild):
-    print(f"Joined new guild: {guild.name} ({guild.id})")
-    if not discord.utils.get(guild.roles, name=ANNOUNCEMENT_ROLE_NAME):
-        await guild.create_role(name=ANNOUNCEMENT_ROLE_NAME, reason="Creating announcement role for BeeBot")
-        print(f"Created role '{ANNOUNCEMENT_ROLE_NAME}' in guild '{guild.name}'")
+        bee_log(f"Setting up channels for guild: {guild.name}")
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    print(f"Received message in #{message.channel}: {message.content}")
+    bee_log(f"Received message in #{message.channel}: {message.content}")
     user_id = str(message.author.id)
-    channel = message.channel  # Moved this up before use
-
+    channel = message.channel
     thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
 
     if not check_privacy_consent(user_id):
@@ -200,10 +181,10 @@ async def on_message(message):
 
     if value == "on" or (value is None and is_thread):
         if message.content.startswith("!"):
-            print("Processing command...")
+            bee_log("BeeBot spotted a command! Processing...")
             await bot.process_commands(message)
         else:
-            print("AI response triggered...")
+            bee_log("BeeBot is about to buzz a reply!")
             reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
             await message.channel.send(reply)
 
