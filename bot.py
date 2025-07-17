@@ -5,6 +5,7 @@ import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
+import openai
 from openai import OpenAI
 from dotenv import load_dotenv
 import redis
@@ -132,6 +133,16 @@ async def on_ready():
                 ))
             except Exception as e:
                 print(f"❌ Failed to reschedule {key} with data {db.get(key)}: {e}")
+
+@bot.event
+async def on_ready():
+    version_channel = bot.get_channel(version_channel_id := db.get(f"guild:{bot.guilds[0].id}:version_channel"))
+    if version_channel:
+        with open("version.txt", "r") as f:
+            version_notes = f.read()
+        await version_channel.send(version_notes)
+    else:
+        print("Version channel not found!")
 
 # Message listener
 @bot.event
