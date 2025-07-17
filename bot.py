@@ -407,13 +407,14 @@ async def set_announcement_channel(interaction: discord.Interaction):
         """
         await interaction.response.send_message(help_text, ephemeral=True)
 
-    @bot.tree.command(name="set_error_channel", description="Set the current channel to receive error logs.")
-    async def set_error_channel(interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.manage_channels:
+@bot.tree.command(name="set_error_channel", description="Set the current channel to receive error logs.")
+async def set_error_channel(interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return 
+        return
+
     key = f"guild:{interaction.guild.id}:error_channel"
-       db.set(key, interaction.channel.id)
-        await interaction.response.send_message(f"✅ This channel is now set to receive error logs.", ephemeral=True)
+    db.set(key, interaction.channel.id)
+    await interaction.response.send_message("✅ This channel is now set to receive error logs.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
