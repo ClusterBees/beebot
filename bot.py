@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 BeeBot_version = "4.0.0"
-=======
->>>>>>> 4fa14b7dc150b07b9c696889ac6fd536441b8c42
 import os
 import random
 import asyncio
@@ -11,11 +8,7 @@ from discord import app_commands
 import openai
 from dotenv import load_dotenv
 import redis
-<<<<<<< HEAD
 from datetime import datetime
-=======
-from datetime import datetime, timedelta
->>>>>>> 4fa14b7dc150b07b9c696889ac6fd536441b8c42
 import time
 import uuid
 import json
@@ -133,10 +126,10 @@ async def on_ready():
             try:
                 data = json.loads(db.get(key))
                 asyncio.create_task(schedule_reminder(
-                    int(parts[1]), int(parts[2]), parts[3], data['remind_time'], data['message']
+                    int(parts[1]), int(parts[2]), parts[3], data.get('remind_time', time.time()), data.get('message', '')
                 ))
             except Exception as e:
-                print(f"❌ Failed to reschedule {key}: {e}")
+                print(f"❌ Failed to reschedule {key} with data {db.get(key)}: {e}")
 
 # Message listener
 @bot.event
@@ -377,6 +370,9 @@ async def set_version_channel(interaction: discord.Interaction):
 
 @bot.tree.command(name="set_announcement_channel", description="Set the current channel to receive announcements.")
 async def set_announcement_channel(interaction: discord.Interaction):
+    """
+    Sets the current channel as the designated channel for receiving announcements in the guild.
+    """
     if not interaction.user.guild_permissions.manage_channels:
         await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
         return
