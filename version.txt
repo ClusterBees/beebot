@@ -1,52 +1,41 @@
-BeeBot Version: 0.1.5 (Fresh Hive Build)
+🐝 BeeBot Announcement: v0.1.6 Deployed!
+Version: 0.1.6 (Fresh Hive Build)
 Last Updated: July 17, 2025
 
-🐝 Welcome to BeeBot v0.1.5!
-This version rolls out shiny new slash commands and embedded messaging to make BeeBot easier to use, more beautiful, and more reliable across your hives.
+The hive keeps humming! This update brings subtle polish, bug squashes, and internal improvements to BeeBot’s growing foundation.
 
-🌻 What’s New in v0.1.5:
+🔧 What’s New in v0.1.6:
+🧱 Internal Improvements
+Refactored code structure for better readability and future maintainability
 
-✅ New /announce slash command
-• Sends announcements as rich Discord embeds
-• Uses the Redis-configured announcement channel
-• Only accessible to users with the Bee Announcer role
-• Includes robust error handling and feedback
+Consolidated imports (Interaction added at top level for consistency)
 
-💬 Auto-reply upgraded to slash command /autoreply
-• Toggle AI replies per-channel
-• View current status any time
-• Auto-enabled in threads by default (OFF elsewhere unless set)
+Added missing type in announce() command (Interaction was explicitly imported)
 
-🔧 Improved fallback logic
-• Falls back to #announcements if no channel is configured
-• Fetches channels directly from the API to avoid cache misses
+🐛 Bugfixes
+Fixed a critical embed creation bug in /announce
+⤷ embed = embed(...) was incorrectly calling the variable instead of the class.
+✅ Now corrected to use discord.Embed(...) for proper embed creation.
 
-🐛 Bugfixes and quality improvements
-• Fixed issues with announcements silently failing
-• Smarter role checks and channel resolution
-• Cleaner logging and user feedback
+Minor cleanup and formatting adjustments in several command descriptions
 
-🍯 What BeeBot Can Do:
+🚫 Safe by Default
+AI now strictly screens input for banned phrases before sending anything to OpenAI
 
-Post beautiful, embedded announcements to the right channels
+Fails gracefully if consent is missing or invalid
 
-Automatically respond to user questions in approved spaces
+🐝 Reminder of BeeBot's Powers:
+Auto-reply in trusted spaces using AI
 
-Support your community with:
+Embedded announcements with role-gated access
 
-Kind, affirming bee-themed messages
+Uplifting content: jokes, facts, affirmations, questions, and quizzes
 
-Reflective mental health prompts
+Global helplines via /crisis
 
-Silly jokes and uplifting facts
-
-Sweet daily affirmations
-
-Stay respectful of privacy — no tracking, no sales, no nonsense
+User-controlled privacy via /consent
 
 ✨ Status:
-BeeBot’s hive is growing strong. With these slash commands and embed tools, we’re laying the groundwork for even better moderation, automation, and community care.
-
-Thanks for buzzing with us. Let’s keep this hive humming. 💛
+v0.1.6 is a maintenance-focused patch preparing BeeBot for smoother, safer scaling. Expect new features in the next buzz! 🐝💛
 
 – The BeeBot Dev Team
