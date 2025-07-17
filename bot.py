@@ -380,3 +380,27 @@ async def set_announcement_channel(interaction: discord.Interaction):
     key = f"guild:{interaction.guild.id}:announcement_channel"
     db.set(key, interaction.channel.id)
     await interaction.response.send_message(f"✅ This channel is now set to receive announcements.", ephemeral=True)
+    @bot.tree.command(name="bee_help", description="Show all BeeBot commands and what they do.")
+    async def bee_help(interaction: discord.Interaction):
+        help_text = """
+    **BeeBot Commands**
+    - `/bee_fact` — Get a fun bee fact!
+    - `/bee_question` — Get a question to ponder!
+    - `/bee_joke` — Get a bee-themed joke!
+    - `/bee_name` — Get a cute bee nickname!
+    - `/bee_species` — Discover your inner bee species!
+    - `/fortune` — Get validating buzzword messages for your day!
+    - `/bee_quiz` — Test your bee knowledge!
+    - `/ask <question>` — Ask BeeBot a question.
+    - `/bee_validate` — Get a validating compliment.
+    - `/remind <duration> <message>` — Set a reminder for yourself.
+    - `/list_reminders` — List your active reminders.
+    - `/cancel_reminder <reminder_id>` — Cancel a reminder by its ID.
+    - `/consent_set <On/Off/Info>` — Manage your consent settings.
+    - `/set_autoreply <channel> <on/off>` — Enable/disable auto-reply for a channel.
+    - `/set_version_channel` — Set this channel for version updates.
+    - `/set_announcement_channel` — Set this channel for announcements.
+    - `/bee_help` — Show all BeeBot commands and what they do.
+    - `!announcement <message>` — Send an announcement to the designated channel.
+    """
+        await interaction.response.send_message(help_text, ephemeral=True)
