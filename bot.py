@@ -73,11 +73,11 @@ def get_random_quiz():
 
 def ai_response(prompt):
     print(f"AI prompt: {prompt}")
-    combined_prompt = f"{personality}\n\nUser: {prompt}\nBeeBot:"
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             print("Prompt contains banned phrase.")
             return "I'm not allowed to discuss that topic."
+
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -85,7 +85,7 @@ def ai_response(prompt):
             {"role": "user", "content": prompt}
         ]
     )
-    reply = response.choices[0].message['content'].strip()
+    reply = response.choices[0].message.content.strip()
     print(f"AI response: {reply}")
     return reply
 
