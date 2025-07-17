@@ -295,24 +295,44 @@ async def crisis(interaction: discord.Interaction):
 @bot.tree.command(name="bee_help", description="List BeeBot commands")
 async def bee_help(interaction: discord.Interaction):
     await interaction.response.send_message("""
-    **BeeBot Commands:**
+**🐝 BeeBot Full Command List:**
 
-    `/bee_fact` - Get a random bee-related fact.
-    `/bee_fortune` - Receive a bee-themed fortune.
-    `/bee_joke` - Hear a bee joke.
-    `/bee_name` - Generate a random bee name.
-    `/bee_question` - Get a deep or fun question to think about.
-    `/bee_quiz` - Take a random bee quiz (multiple choice).
-    `/bee_species` - Learn about a random bee species.
-    `/ask` - Ask BeeBot any question using AI.
-    `/bee_validate` - Get some emotional validation from BeeBot.
-    `/consent` - Manage your privacy consent settings.
-    `/set_reminder` - Set a personal reminder.
-    `/get_reminders` - View your active reminders.
-    `/delete_reminder` - Delete a reminder by index.
-    `/crisis` - View a list of global crisis helplines.
-    `!announcement` - Send an announcement as BeeBot.
-    """)
+🧠 **General Info & Fun**
+- `/bee_fact` — Get a random bee-related fact.
+- `/bee_fortune` — Receive a bee-themed fortune.
+- `/bee_joke` — Hear a bee joke.
+- `/bee_name` — Generate a random bee name.
+- `/bee_question` — Get a deep or fun question to think about.
+- `/bee_quiz` — Take a random bee quiz (multiple choice).
+- `/bee_species` — Learn about a random bee species.
+- `/bee_validate` — Get some emotional validation.
+
+🤖 **AI & Interaction**
+- `/ask` — Ask BeeBot any question using AI.
+- `/autoreply` — Enable or disable AI auto-reply in the current channel.
+
+🛠️ **Context & Emotion Debugging**
+- `/debug_context` — View a user’s recent message context and emotion.
+- `/clear_context` — Clear saved context and emotion for a user.
+
+📢 **Announcements & Channel Setup**
+- `/announce` — Send an announcement to the designated channel.
+- `/set_version_channel` — Set the current channel for version logs.
+- `/set_announcement_channel` — Set the current channel for announcements.
+- `/set_error_channel` — Set the current channel for error messages.
+
+📅 **Reminders**
+- `/set_reminder` — Set a personal reminder.
+- `/get_reminders` — View your active reminders.
+- `/delete_reminder` — Delete a reminder by index.
+
+🛡️ **Privacy & Consent**
+- `/consent` — Manage your data consent settings.
+
+💛 **Support**
+- `/crisis` — View global crisis helplines.
+
+""")
 
 @bot.tree.command(name="set_version_channel", description="Set this channel as the version log")
 async def set_version_channel(interaction: discord.Interaction):
