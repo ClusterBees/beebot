@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 BeeBot_version = "4.0.0"
+=======
+>>>>>>> 4fa14b7dc150b07b9c696889ac6fd536441b8c42
 import os
 import random
 import asyncio
@@ -8,7 +11,11 @@ from discord import app_commands
 import openai
 from dotenv import load_dotenv
 import redis
+<<<<<<< HEAD
 from datetime import datetime
+=======
+from datetime import datetime, timedelta
+>>>>>>> 4fa14b7dc150b07b9c696889ac6fd536441b8c42
 import time
 import uuid
 import json
