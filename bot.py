@@ -30,6 +30,8 @@ db = redis.Redis(
 AUTO_REPLY_CHANNELS_KEY = "global:auto_reply_channels"
 UNIVERSAL_CONSENT_KEY = "global:universal_consent"
 
+VERSION_CHANNEL_KEY = "global:version_channel"
+
 # Intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -370,11 +372,11 @@ async def set_autoreply(interaction: discord.Interaction, channel: discord.TextC
     else:
         await interaction.response.send_message("⚠️ Use 'on' or 'off' as the mode.", ephemeral=True)
 
-@bot.tree.command(name="set_version_channel", description="Set the current channel to receive version updates.")
+@bot.tree.command(name="set_version_channel", description="Set the version log channel.")
 async def set_version_channel(interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.manage_channels:
-        await interaction.response.send_message("🚫 You need `Manage Channels` permission.", ephemeral=True)
-        return
+    db.set(VERSION_CHANNEL_KEY, interaction.channel.id)
+    await interaction.response.send_message("✅ Version channel has been set.", ephemeral=True)
+    return
 
     key = f"guild:{interaction.guild.id}:version_channel"
     db.set(key, interaction.channel.id)
