@@ -25,7 +25,7 @@ logging.basicConfig(
 # Load environment variables
 load_dotenv()
 client = OpenAI(
-  api_key=os.environ["OPENAI_API_KEY"])
+api_key=os.environ["OPENAI_API_KEY"])
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis DB setup
@@ -124,36 +124,18 @@ async def generate_bee_response(user_input: str) -> str:
 # Ready
 @bot.event
 async def on_ready():
-            await channel.send("✅ BeeBot is up and running!")
+    logging.info("/Bot is ready.\n")
     if announcement_channel_id:
         channel = bot.get_channel(int(announcement_channel_id))
         if channel:
+            await channel.send("✅ BeeBot is up and running!")
+        else:
+            logging.warning("Announcement channel not found.")
+    await bot.tree.sync()
     if bot.user:
         print(f"✅ Logged in as {bot.user} and synced slash commands.")
     else:
         print("✅ Bot is logged in and slash commands synced.")
-        else:
-            logging.warning(\"Announcement channel not found.\")
-    await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user} and synced slash commands.")
-    for key in db.scan_iter("reminder:*"):
-        parts = key.split(":")
-        if len(parts) == 4:
-            try:
-                data = json.loads(db.get(key))
-                asyncio.create_task(schedule_reminder(
-                    int(parts[1]), int(parts[2]), parts[3], data.get('remind_time', time.time()), data.get('message', '')
-                ))
-            except Exception as e:
-                print(f"❌ Failed to reschedule {key} with data {db.get(key)}: {e}")
-    version_channel = bot.get_channel(version_channel_id := db.get(f"guild:{bot.guilds[0].id}:version_channel"))
-    if version_channel:
-        with open("version.txt", "r") as f:
-            version_notes = f.read()
-        await version_channel.send(version_notes)
-    else:
-        print("Version channel not found!")
-
 # Message listener
 @bot.event
 async def on_message(message):
