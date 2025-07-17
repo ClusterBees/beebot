@@ -184,13 +184,16 @@ async def on_message(message):
 
     print(f"Received message in #{message.channel}: {message.content}")
     user_id = str(message.author.id)
+    channel = message.channel  # Moved this up before use
+
     thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
+
     if not check_privacy_consent(user_id):
         await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
         return
+
     store_context(user_id, thread_id, message.content)
 
-    channel = message.channel
     channel_key = f"autoreply:{channel.id}"
     value = r.get(channel_key)
     is_thread = isinstance(channel, discord.Thread)
