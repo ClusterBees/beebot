@@ -1,7 +1,7 @@
 # bot.py
 import discord
 from discord.ext import commands, tasks
-import openai
+from openai import OpenAI
 import os
 import redis
 import random
@@ -11,7 +11,8 @@ import asyncio
 
 # Load environment variables
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Redis setup using environment variables
@@ -34,7 +35,7 @@ intents.messages = True
 intents.guilds = True
 intents.message_content = True
 
-bot = discord.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Load text files
 def load_lines(filename):
@@ -68,7 +69,7 @@ def ai_response(prompt):
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             return "I'm not allowed to discuss that topic."
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": personality},
@@ -118,24 +119,24 @@ async def announcement(ctx, *, msg):
         await announcement_channel.send(msg)
 
 # Slash commands via discord.ext.commands
-@bot.slash_command(name="bee_fact")
+@bot.command(name="bee_fact")
 async def bee_fact(ctx):
-    await ctx.respond(random.choice(facts))
+    await ctx.send(random.choice(facts))
 
-@bot.slash_command(name="bee_fortune")
+@bot.command(name="bee_fortune")
 async def bee_fortune(ctx):
-    await ctx.respond(random.choice(fortunes))
+    await ctx.send(random.choice(fortunes))
 
-@bot.slash_command(name="bee_joke")
+@bot.command(name="bee_joke")
 async def bee_joke(ctx):
     await ctx.respond(random.choice(jokes))
 
-@bot.slash_command(name="bee_name")
+@bot.command(name="bee_name")
 async def bee_name(ctx):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
     await ctx.respond(name)
 
-@bot.slash_command(name="bee_question")
+@bot.command(name="bee_question")
 async def bee_question(ctx):
     await ctx.respond(random.choice(questions))
 
