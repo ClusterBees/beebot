@@ -1,4 +1,4 @@
-# BeeBot Version: 0.1.2 (Fresh Hive Build)
+# BeeBot Version: 0.1.3 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from openai import OpenAI
@@ -96,16 +96,30 @@ def parse_duration(time_str):
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name}")
+    synced = await bot.tree.sync()
+    print(f"Synced {len(synced)} slash commands globally.")
     for guild in bot.guilds:
+        # Attempt to get stored channel IDs from Redis
+        version_id = r.get(f"channel:version:{guild.id}")
+        announcement_id = r.get(f"channel:announcement:{guild.id}")
+        error_id = r.get(f"channel:error:{guild.id}")
+
+        version_channel = bot.get_channel(int(version_id)) if version_id else None
+        announcement_channel = bot.get_channel(int(announcement_id)) if announcement_id else None
+        error_channel = bot.get_channel(int(error_id)) if error_id else None
+
+        # Send messages to configured channels
+        if version_channel:
+            await version_channel.send(version_text)
+        if announcement_channel:
+            await announcement_channel.send("BeeBot is online!")
+        if error_channel:
+            await error_channel.send("⚠️ BeeBot has restarted and is active.")
+
+        # Optionally, still create default channels if none were configured
         for channel_name in ["errors", "version", "announcements"]:
             if not discord.utils.get(guild.text_channels, name=channel_name):
                 await guild.create_text_channel(channel_name)
-        version_channel = discord.utils.get(guild.text_channels, name="version")
-        if version_channel:
-            await version_channel.send(version_text)
-        announcement_channel = discord.utils.get(guild.text_channels, name="announcements")
-        if announcement_channel:
-            await announcement_channel.send("BeeBot is online!")
 
 @bot.event
 async def on_message(message):
@@ -232,5 +246,20 @@ async def bee_help(ctx):
     `/crisis` - View a list of global crisis helplines.
     `!announcement` - Send an announcement as BeeBot.
     """)
+
+@bot.command(name="set_version_channel")
+async def set_version_channel(ctx):
+    r.set(f"channel:version:{ctx.guild.id}", ctx.channel.id)
+    await ctx.respond(f"✅ This channel has been set as the **version** channel.")
+
+@bot.command(name="set_announcement_channel")
+async def set_announcement_channel(ctx):
+    r.set(f"channel:announcement:{ctx.guild.id}", ctx.channel.id)
+    await ctx.respond(f"📢 This channel has been set as the **announcement** channel.")
+
+@bot.command(name="set_error_channel")
+async def set_error_channel(ctx):
+    r.set(f"channel:error:{ctx.guild.id}", ctx.channel.id)
+    await ctx.respond(f"⚠️ This channel has been set as the **error** channel.")
 
 bot.run(DISCORD_TOKEN)
