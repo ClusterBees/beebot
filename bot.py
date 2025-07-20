@@ -619,7 +619,7 @@ async def serious_mode(interaction: discord.Interaction, mode: str):
 @bot.tree.command(name="invite", description="Get BeeBot's invite link to add it to your server")
 async def invite(interaction: discord.Interaction):
     app_info = await bot.application_info()
-    invite_url = f"https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934608463953&integration_type=0&scope=bot+applications.commands"
+    invite_url = f"https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934742681681&integration_type=0&scope=bot+applications.commands"
     await interaction.response.send_message(f"🐝 **Invite BeeBot to your server!**\n{invite_url}")
 
 @bot.tree.command(name="dm", description="Receive a direct message from BeeBot")
