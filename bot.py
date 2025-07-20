@@ -1,4 +1,4 @@
-# 🐝 BeeBot v0.2.0 (Fresh Hive Build)
+# 🐝 BeeBot v0.2.1 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -38,11 +38,37 @@ def bee_log(message):
 
 # Emotion detection regex map
 EMOTION_MAP = {
-    "sad": ["sad", "upset", "cry", "lonely", "depressed"],
-    "happy": ["happy", "joy", "excited", "smile"],
-    "angry": ["angry", "mad", "furious"],
-    "anxious": ["worried", "anxious", "scared", "nervous"],
-    "tired": ["tired", "exhausted", "worn out"]
+    "sad": [
+        "sad", "upset", "cry", "lonely", "depressed", "blue", "down", "hurt", "heartbroken",
+        "grieving", "mourning", "bummed", "melancholy", "despair"
+    ],
+    "happy": [
+        "happy", "joy", "excited", "smile", "glad", "cheerful", "grateful", "content", "glee",
+        "thrilled", "blissful"
+    ],
+    "angry": [
+        "angry", "mad", "furious", "annoyed", "frustrated", "irritated", "resentful",
+        "fuming", "snappy", "rage"
+    ],
+    "anxious": [
+        "worried", "anxious", "scared", "nervous", "panicked", "overwhelmed", "afraid",
+        "tense", "shaky", "on edge", "dizzy", "racing", "uneasy"
+    ],
+    "ashamed": [
+        "ashamed", "guilty", "embarrassed", "regret", "sorry", "disgusted with myself",
+        "worthless", "cringe", "mortified"
+    ],
+    "rejected": [
+        "ignored", "unwanted", "rejected", "abandoned", "invisible", "left out", "unloved",
+        "uncared for", "dismissed", "neglected"
+    ],
+    "tired": [
+        "tired", "exhausted", "worn out", "drained", "burnt out", "sleepy", "drowsy",
+        "sluggish", "fatigued"
+    ],
+    "neutral": [
+        "fine", "okay", "meh", "whatever", "shrug", "idk", "neutral"
+    ]
 }
 
 def detect_emotion(message):
@@ -52,6 +78,53 @@ def detect_emotion(message):
             bee_log(f"Detected emotion: {emotion} from message: '{message}'")
             return emotion
     return "neutral"
+
+def choose_response_style(emotion):
+    if emotion in ["sad", "hurt", "ashamed", "rejected"]:
+        return "gentle"
+    elif emotion in ["angry", "frustrated"]:
+        return "calm_and_validating"
+    elif emotion == "anxious":
+        return "soothing"
+    elif emotion == "tired":
+        return "supportive"
+    elif emotion == "happy":
+        return "cheerful"
+    else:
+        return "neutral"
+
+TONE_RITUALS = {
+    "gentle": [
+        "💛 You're safe here. I'm listening closely.",
+        "🌙 You deserve softness today, even if the world feels hard.",
+        "🧺 I'm wrapping you in warm bee fuzz. You're not alone."
+    ],
+    "calm_and_validating": [
+        "🌿 It’s okay to feel upset. You’re allowed to be heard.",
+        "🗯️ Let it out, brave bee. I'm here to buzz back.",
+        "🌧️ Stormy feelings still need care—and you deserve it."
+    ],
+    "soothing": [
+        "🧘 Deep breaths together. I'm your little grounding buddy.",
+        "🌊 It's okay to feel like you're drifting. I'm your anchor.",
+        "🐚 No emotion is too much. I'm staying with you."
+    ],
+    "supportive": [
+        "🛌 You’ve done enough. Let's cozy up together.",
+        "☕ Rest is productive too. Want a sleepy bee pun?",
+        "🧸 I see how tired you are. Let’s lighten the load."
+    ],
+    "cheerful": [
+        "🎉 You’re glowing, little bee! Want a celebration fact?",
+        "🌈 Let’s ride the joy wave together!",
+        "🐝 Buzz buzz! I’m doing a happy wiggle for you!"
+    ],
+    "neutral": [
+        "🐝 Just buzzing along with you—ready when you are.",
+        "💬 Whatever’s on your mind, I’m all ears.",
+        "📎 I’m here. Say anything, and I’ll follow your lead."
+    ]
+}
 
 # Intents setup
 intents = discord.Intents.default()
@@ -125,23 +198,29 @@ def ai_response(prompt, user_id=None, channel_id=None):
     context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
     emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
-    # 🔥 Determine if current channel is a thread
+    # Determine tone and ritual
+    tone = choose_response_style(emotion)
+    ritual = random.choice(TONE_RITUALS.get(tone, ["🐝"]))
+
+    # Choose persona file
+    serious_mode = r.get("serious_mode") == "on"
     current_channel = bot.get_channel(int(thread_id))
     is_thread = isinstance(current_channel, discord.Thread) if current_channel else False
 
-    # 🔥 Serious mode is on if manually toggled, emotion is sad/angry, or if in a thread
-    serious_mode = r.get("serious_mode") == "on"
-    if serious_mode or emotion in ["sad", "angry"] or is_thread:
+    if serious_mode or emotion in ["sad", "angry", "ashamed", "rejected"] or is_thread:
         persona = load_personality("serious_personality.txt")
-        bee_log("Using serious_personality.txt due to serious mode, detected emotion, or thread context.")
+        bee_log("Using serious_personality.txt")
     else:
         persona = load_personality("personality.txt")
-        bee_log("Using default personality.txt.")
+        bee_log("Using default personality.txt")
 
+    # Construct prompt with emotion and context
     context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
-    full_prompt = f"User seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else prompt
+    full_prompt = f"{ritual}\nUser seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else f"{ritual}\n{prompt}"
 
-    bee_log(f"Preparing AI prompt: {full_prompt}")
+    bee_log(f"Final prompt to OpenAI:\n{full_prompt}")
+
+    # Block banned phrases
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             bee_log("Prompt blocked due to banned phrase.")
@@ -159,7 +238,7 @@ def ai_response(prompt, user_id=None, channel_id=None):
         bee_log(f"BeeBot's response: {reply}")
         return reply
     except Exception as e:
-        bee_log(f"Oh no! An error happened while generating AI response: {e}")
+        bee_log(f"Oh no! Error in AI response: {e}")
         return "Oops! My wings got tangled while thinking. Try again soon!"
 
 @bot.event
