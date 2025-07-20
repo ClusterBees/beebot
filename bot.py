@@ -198,14 +198,24 @@ def ai_response(prompt, user_id=None, channel_id=None):
     context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
     emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
-    # Determine tone and ritual
+    # 🧠 Determine tone and ritual
     tone = choose_response_style(emotion)
     ritual = random.choice(TONE_RITUALS.get(tone, ["🐝"]))
 
-    # Choose persona file
+    # 🧬 Choose persona file
     serious_mode = r.get("serious_mode") == "on"
-    current_channel = bot.get_channel(int(thread_id))
-    is_thread = isinstance(current_channel, discord.Thread) if current_channel else False
+
+    # 🧵 Thread detection (safe for DMs)
+    if thread_id.startswith("dm:"):
+        current_channel = None
+        is_thread = False
+    else:
+        try:
+            current_channel = bot.get_channel(int(thread_id))
+            is_thread = isinstance(current_channel, discord.Thread) if current_channel else False
+        except (ValueError, TypeError):
+            current_channel = None
+            is_thread = False
 
     if serious_mode or emotion in ["sad", "angry", "ashamed", "rejected"] or is_thread:
         persona = load_personality("serious_personality.txt")
@@ -214,18 +224,22 @@ def ai_response(prompt, user_id=None, channel_id=None):
         persona = load_personality("personality.txt")
         bee_log("Using default personality.txt")
 
-    # Construct prompt with emotion and context
+    # 🧵 Construct prompt with emotion and context
     context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
-    full_prompt = f"{ritual}\nUser seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else f"{ritual}\n{prompt}"
+    full_prompt = (
+        f"{ritual}\nUser seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}"
+        if context_text else f"{ritual}\n{prompt}"
+    )
 
     bee_log(f"Final prompt to OpenAI:\n{full_prompt}")
 
-    # Block banned phrases
+    # 🚫 Block banned phrases
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             bee_log("Prompt blocked due to banned phrase.")
             return "I'm not allowed to discuss that topic."
 
+    # 🧠 Generate AI response
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
