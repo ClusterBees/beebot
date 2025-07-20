@@ -1,4 +1,4 @@
-# 🐝 BeeBot v0.1.9 (Fresh Hive Build)
+# 🐝 BeeBot v0.2.0 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -77,9 +77,13 @@ fortunes = load_lines("fortunes.txt")
 jokes = load_lines("jokes.txt")
 prefixes = load_lines("prefixes.txt")
 suffixes = load_lines("suffixes.txt")
-with open("personality.txt", "r", encoding="utf-8") as f:
-    personality = f.read().strip()
-    bee_log("Personality loaded from personality.txt")
+def load_personality(file="personality.txt"):
+    with open(file, "r", encoding="utf-8") as f:
+        lines = f.read().strip()
+        bee_log(f"Personality loaded from {file}")
+        return lines
+
+personality = load_personality()
 questions = load_lines("questions.txt")
 quiz_questions = load_lines("quiz.txt")
 bee_species = load_lines("bee_species.txt")
@@ -121,6 +125,15 @@ def ai_response(prompt, user_id=None, channel_id=None):
     context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
     emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
+    # 🔥 Place the serious_mode check here
+    serious_mode = r.get("serious_mode") == "on"
+    if serious_mode or emotion in ["sad", "angry"]:
+        persona = load_personality("serious_personality.txt")
+        bee_log("Using serious_personality.txt due to serious mode or detected emotion.")
+    else:
+        persona = load_personality("personality.txt")
+        bee_log("Using default personality.txt.")
+
     context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
     full_prompt = f"User seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}" if context_text else prompt
 
@@ -134,7 +147,7 @@ def ai_response(prompt, user_id=None, channel_id=None):
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": personality},
+                {"role": "system", "content": persona},
                 {"role": "user", "content": full_prompt}
             ]
         )
@@ -143,12 +156,6 @@ def ai_response(prompt, user_id=None, channel_id=None):
         return reply
     except Exception as e:
         bee_log(f"Oh no! An error happened while generating AI response: {e}")
-        for guild in bot.guilds:
-            error_id = r.get(f"channel:error:{guild.id}")
-            if error_id:
-                channel = bot.get_channel(int(error_id))
-                if channel:
-                    asyncio.create_task(channel.send(f"⚠️ AI error: {e}"))
         return "Oops! My wings got tangled while thinking. Try again soon!"
 
 @bot.event
@@ -438,5 +445,14 @@ async def clear_context(interaction: Interaction, target: discord.User):
     r.delete(f"context:{thread_id}:{target.id}")
     r.delete(f"emotion:{thread_id}:{target.id}")
     await interaction.response.send_message(f"🧹 Cleared context and emotion for {target.mention}.", ephemeral=True)
+
+@bot.tree.command(name="serious_mode", description="Toggle BeeBot serious personality")
+@app_commands.describe(mode="on or off")
+async def serious_mode(interaction: discord.Interaction, mode: str):
+    if mode.lower() not in ["on", "off"]:
+        await interaction.response.send_message("Choose `on` or `off`.", ephemeral=True)
+        return
+    r.set("serious_mode", mode.lower())
+    await interaction.response.send_message(f"Serious mode is now **{mode.lower()}**.", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
