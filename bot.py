@@ -1,4 +1,4 @@
-# 🐝 BeeBot v0.2.2 (Fresh Hive Build)
+# 🐝 BeeBot v0.2.2 (Polished Hive Build - Annotated)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -7,68 +7,57 @@ import os
 import redis
 import random
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone  # ✅ Fixed timestamp handling
 import asyncio
 import re
 
 ANNOUNCEMENT_ROLE_NAME = "Bee Announcer"
 
-# Load environment variables
+# 🧪 Load environment variables
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Redis setup using environment variables
+# 🛡️ Redis setup with graceful failure handling
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
-r = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    db=REDIS_DB,
-    password=REDIS_PASSWORD,
-    decode_responses=True
-)
+try:
+    r = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+    r.ping()  # ✅ Ensures Redis is reachable before bot starts
+except redis.ConnectionError:
+    print("❌ Redis connection failed. Please verify your credentials and server status.")
+    exit(1)
 
-# BeeBot-style logging function
+# 📝 BeeBot-style logging
 def bee_log(message):
     print(f"🐝 [BeeBot Log] {message}")
 
-# Emotion detection regex map
+# 🧠 Emotion detection using keyword mapping
 EMOTION_MAP = {
-    "sad": [
-        "sad", "upset", "cry", "lonely", "depressed", "blue", "down", "hurt", "heartbroken",
-        "grieving", "mourning", "bummed", "melancholy", "despair"
-    ],
-    "happy": [
-        "happy", "joy", "excited", "smile", "glad", "cheerful", "grateful", "content", "glee",
-        "thrilled", "blissful"
-    ],
-    "angry": [
-        "angry", "mad", "furious", "annoyed", "frustrated", "irritated", "resentful",
-        "fuming", "snappy", "rage"
-    ],
-    "anxious": [
-        "worried", "anxious", "scared", "nervous", "panicked", "overwhelmed", "afraid",
-        "tense", "shaky", "on edge", "dizzy", "racing", "uneasy"
-    ],
-    "ashamed": [
-        "ashamed", "guilty", "embarrassed", "regret", "sorry", "disgusted with myself",
-        "worthless", "cringe", "mortified"
-    ],
-    "rejected": [
-        "ignored", "unwanted", "rejected", "abandoned", "invisible", "left out", "unloved",
-        "uncared for", "dismissed", "neglected"
-    ],
-    "tired": [
-        "tired", "exhausted", "worn out", "drained", "burnt out", "sleepy", "drowsy",
-        "sluggish", "fatigued"
-    ],
-    "neutral": [
-        "fine", "okay", "meh", "whatever", "shrug", "idk", "neutral"
-    ]
+    "sad": ["sad", "upset", "cry", "lonely", "depressed", "blue", "down", "hurt", "heartbroken",
+            "grieving", "mourning", "bummed", "melancholy", "despair"],
+    "happy": ["happy", "joy", "excited", "smile", "glad", "cheerful", "grateful", "content", "glee",
+              "thrilled", "blissful"],
+    "angry": ["angry", "mad", "furious", "annoyed", "frustrated", "irritated", "resentful",
+              "fuming", "snappy", "rage"],
+    "anxious": ["worried", "anxious", "scared", "nervous", "panicked", "overwhelmed", "afraid",
+                "tense", "shaky", "on edge", "dizzy", "racing", "uneasy"],
+    "ashamed": ["ashamed", "guilty", "embarrassed", "regret", "sorry", "disgusted with myself",
+                "worthless", "cringe", "mortified"],
+    "rejected": ["ignored", "unwanted", "rejected", "abandoned", "invisible", "left out", "unloved",
+                 "uncared for", "dismissed", "neglected"],
+    "tired": ["tired", "exhausted", "worn out", "drained", "burnt out", "sleepy", "drowsy",
+              "sluggish", "fatigued"],
+    "neutral": ["fine", "okay", "meh", "whatever", "shrug", "idk", "neutral"]
 }
 
 def detect_emotion(message):
@@ -79,6 +68,7 @@ def detect_emotion(message):
             return emotion
     return "neutral"
 
+# 🧬 Ritual tone selector
 def choose_response_style(emotion):
     if emotion in ["sad", "hurt", "ashamed", "rejected"]:
         return "gentle"
@@ -93,6 +83,7 @@ def choose_response_style(emotion):
     else:
         return "neutral"
 
+# 💖 Cozy tone-matched rituals (unchanged but expandable)
 TONE_RITUALS = {
     "gentle": [
         "💛 You're safe here. I'm listening closely.",
@@ -125,37 +116,47 @@ TONE_RITUALS = {
         "📎 I’m here. Say anything, and I’ll follow your lead."
     ]
 }
-
-# Intents setup
+# 🐝 Intents configuration (includes message_content intent—make sure BeeBot is verified if needed)
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
-intents.message_content = True
+intents.message_content = True  # ✅ Required for reading non-slash messages
 
+# 🐝 Bot Initialization
 class BeeBot(commands.Bot):
     async def setup_hook(self):
-        await self.tree.sync()
+        await self.tree.sync()  # ✅ Ensures all slash commands are globally registered
 
 bot = BeeBot(command_prefix="!", intents=intents)
 
-# Load text files
+# 📂 Load text-based data for rituals, facts, etc.
 def load_lines(filename):
-    with open(filename, 'r', encoding='utf-8') as f:
-        lines = [line.strip() for line in f if line.strip()]
-        bee_log(f"Loaded {len(lines)} lines from {filename}")
-        return lines
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            lines = [line.strip() for line in f if line.strip()]
+            bee_log(f"Loaded {len(lines)} lines from {filename}")
+            return lines
+    except Exception as e:
+        bee_log(f"Error loading {filename}: {e}")
+        return []
 
+# 🧬 Load personality text
+def load_personality(file="personality.txt"):
+    try:
+        with open(file, "r", encoding="utf-8") as f:
+            lines = f.read().strip()
+            bee_log(f"Personality loaded from {file}")
+            return lines
+    except Exception as e:
+        bee_log(f"Error loading personality from {file}: {e}")
+        return ""
+
+# 📚 Populate BeeBot's memory banks
 facts = load_lines("facts.txt")
 fortunes = load_lines("fortunes.txt")
 jokes = load_lines("jokes.txt")
 prefixes = load_lines("prefixes.txt")
 suffixes = load_lines("suffixes.txt")
-def load_personality(file="personality.txt"):
-    with open(file, "r", encoding="utf-8") as f:
-        lines = f.read().strip()
-        bee_log(f"Personality loaded from {file}")
-        return lines
-
 personality = load_personality()
 questions = load_lines("questions.txt")
 quiz_questions = load_lines("quiz.txt")
@@ -163,17 +164,19 @@ bee_species = load_lines("bee_species.txt")
 banned_phrases = load_lines("banned_phrases.txt")
 version_text = "\n".join(load_lines("version.txt"))
 
-# Helper functions
+# 🔒 Privacy check
 def check_privacy_consent(user_id):
     consent = r.get(f"consent:{user_id}") == "on"
     bee_log(f"Privacy consent check for {user_id}: {consent}")
     return consent
 
+# 🐝 Quiz question fetcher
 def get_random_quiz():
     q = random.choice(quiz_questions)
     parts = q.split('|')
     return f"{parts[0]}\nA) {parts[1]}\nB) {parts[2]}\nC) {parts[3]}", parts[4] if len(parts) == 5 else ""
 
+# 🧠 Store recent messages and emotion for context awareness
 def store_context(user_id, thread_id, message_content, limit=6):
     key = f"context:{thread_id}:{user_id}"
     r.lpush(key, message_content)
@@ -183,6 +186,7 @@ def store_context(user_id, thread_id, message_content, limit=6):
     r.set(f"emotion:{thread_id}:{user_id}", emotion, ex=3600)
     bee_log(f"Stored context and emotion ({emotion}) for user {user_id} in thread {thread_id}")
 
+# 🧠 Fetch recent context
 def get_context(user_id, thread_id):
     context = r.lrange(f"context:{thread_id}:{user_id}", 0, -1)
     bee_log(f"Fetched context for {user_id} in thread {thread_id}: {context}")
@@ -192,20 +196,20 @@ def get_emotion(user_id, thread_id):
     emotion = r.get(f"emotion:{thread_id}:{user_id}") or "neutral"
     bee_log(f"Fetched emotion for {user_id} in thread {thread_id}: {emotion}")
     return emotion
-
 def ai_response(prompt, user_id=None, channel_id=None):
     thread_id = channel_id or "general"
     context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
     emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
-    # 🧠 Determine tone and ritual
+    # 🧬 Determine tone and select ritual
     tone = choose_response_style(emotion)
-    ritual = random.choice(TONE_RITUALS.get(tone, ["🐝"]))
+    rituals = TONE_RITUALS.get(tone, ["🐝"])
+    ritual = " ".join(random.sample(rituals, min(2, len(rituals))))  # ✅ Layering rituals for richness
 
-    # 🧬 Choose persona file
+    # 🧬 Persona file selection logic
     serious_mode = r.get("serious_mode") == "on"
 
-    # 🧵 Thread detection (safe for DMs)
+    # 🧵 Thread detection to influence persona choice
     if thread_id.startswith("dm:"):
         current_channel = None
         is_thread = False
@@ -217,6 +221,7 @@ def ai_response(prompt, user_id=None, channel_id=None):
             current_channel = None
             is_thread = False
 
+    # 🔀 Persona switching based on emotion, mode, or thread context
     if serious_mode or emotion in ["sad", "angry", "ashamed", "rejected"] or is_thread:
         persona = load_personality("serious_personality.txt")
         bee_log("Using serious_personality.txt")
@@ -224,7 +229,7 @@ def ai_response(prompt, user_id=None, channel_id=None):
         persona = load_personality("personality.txt")
         bee_log("Using default personality.txt")
 
-    # 🧵 Construct prompt with emotion and context
+    # 🧵 Construct full prompt with ritual, emotion tag, and historical context
     context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
     full_prompt = (
         f"{ritual}\nUser seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}"
@@ -233,13 +238,13 @@ def ai_response(prompt, user_id=None, channel_id=None):
 
     bee_log(f"Final prompt to OpenAI:\n{full_prompt}")
 
-    # 🚫 Block banned phrases
+    # 🚫 Banned phrase filter
     for phrase in banned_phrases:
         if phrase.lower() in prompt.lower():
             bee_log("Prompt blocked due to banned phrase.")
             return "I'm not allowed to discuss that topic."
 
-    # 🧠 Generate AI response
+    # 🧠 API call with fallback for cozy error handling
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -254,87 +259,71 @@ def ai_response(prompt, user_id=None, channel_id=None):
     except Exception as e:
         bee_log(f"Oh no! Error in AI response: {e}")
         return "Oops! My wings got tangled while thinking. Try again soon!"
+def ai_response(prompt, user_id=None, channel_id=None):
+    thread_id = channel_id or "general"
+    context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
+    emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
-@bot.event
-async def on_ready():
-    bee_log(f"Buzz buzz! I just logged in as {bot.user.name}! I'm ready to fly! 🎉")
-    bot.tree.sync()
-    bee_log(f"Synced slash commands globally!")
+    # 🧬 Determine tone and select ritual
+    tone = choose_response_style(emotion)
+    rituals = TONE_RITUALS.get(tone, ["🐝"])
+    ritual = " ".join(random.sample(rituals, min(2, len(rituals))))  # ✅ Layering rituals for richness
 
-    for guild in bot.guilds:
-        bee_log(f"Setting up channels for guild: {guild.name}")
+    # 🧬 Persona file selection logic
+    serious_mode = r.get("serious_mode") == "on"
 
-        # Fetch version channel ID from Redis
-        version_id = r.get(f"channel:version:{guild.id}")
-        if version_id:
-            channel = bot.get_channel(int(version_id))
-            if channel:
-                # Send both a friendly version ping and the full version.txt contents
-                await channel.send(
-                    f"🐝 **BeeBot v{version_text.splitlines()[5]} is online!**\n"
-                    f"Buzz buzz! Ready to support in **{guild.name}**.\n"
-                    f"Synced commands. Type `/bee_help` to see what's new!"
-                )
+    # 🧵 Thread detection to influence persona choice
+    if thread_id.startswith("dm:"):
+        current_channel = None
+        is_thread = False
+    else:
+        try:
+            current_channel = bot.get_channel(int(thread_id))
+            is_thread = isinstance(current_channel, discord.Thread) if current_channel else False
+        except (ValueError, TypeError):
+            current_channel = None
+            is_thread = False
 
-                await channel.send(f"📜 Full version log:\n```\n{version_text}\n```")
-                bee_log(f"Sent startup message and full version.txt to #{channel.name} in {guild.name}")
-            else:
-                bee_log(f"Version channel ID {version_id} not found in guild {guild.name}.")
-        else:
-            bee_log(f"No version channel set for guild {guild.name}.")
+    # 🔀 Persona switching based on emotion, mode, or thread context
+    if serious_mode or emotion in ["sad", "angry", "ashamed", "rejected"] or is_thread:
+        persona = load_personality("serious_personality.txt")
+        bee_log("Using serious_personality.txt")
+    else:
+        persona = load_personality("personality.txt")
+        bee_log("Using default personality.txt")
 
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
+    # 🧵 Construct full prompt with ritual, emotion tag, and historical context
+    context_text = "\n".join([f"User said: {msg}" for msg in reversed(context_msgs)])
+    full_prompt = (
+        f"{ritual}\nUser seems to be feeling {emotion}.\n{context_text}\nNow they say: {prompt}"
+        if context_text else f"{ritual}\n{prompt}"
+    )
 
-    bee_log(f"Received message from {message.author} in {message.channel}: {message.content}")
+    bee_log(f"Final prompt to OpenAI:\n{full_prompt}")
 
-    user_id = str(message.author.id)
+    # 🚫 Banned phrase filter
+    for phrase in banned_phrases:
+        if phrase.lower() in prompt.lower():
+            bee_log("Prompt blocked due to banned phrase.")
+            return "I'm not allowed to discuss that topic."
 
-    # 📨 DM Handling
-    if isinstance(message.channel, discord.DMChannel):
-        thread_id = f"dm:{user_id}"
+    # 🧠 API call with fallback for cozy error handling
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": persona},
+                {"role": "user", "content": full_prompt}
+            ]
+        )
+        reply = response.choices[0].message.content.strip()
+        bee_log(f"BeeBot's response: {reply}")
+        return reply
+    except Exception as e:
+        bee_log(f"Oh no! Error in AI response: {e}")
+        return "Oops! My wings got tangled while thinking. Try again soon!"
+# 🧠 Fun and Emotional Support Commands
 
-        if not check_privacy_consent(user_id):
-            await message.channel.send("Please use `/consent` in a server to activate BeeBot in DMs.")
-            return
-
-        store_context(user_id, thread_id, message.content)
-
-        if message.content.startswith("!"):
-            bee_log("BeeBot spotted a command in DM! Processing...")
-            await bot.process_commands(message)
-        else:
-            bee_log("BeeBot is buzzing a DM reply!")
-            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
-            await message.channel.send(reply)
-        return
-
-    # 🌐 Server or thread message handling
-    channel = message.channel
-    thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
-
-    if not check_privacy_consent(user_id):
-        await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
-        return
-
-    store_context(user_id, thread_id, message.content)
-
-    channel_key = f"autoreply:{channel.id}"
-    value = r.get(channel_key)
-    is_thread = isinstance(channel, discord.Thread)
-
-    if value == "on" or (value is None and is_thread):
-        if message.content.startswith("!"):
-            bee_log("BeeBot spotted a command! Processing...")
-            await bot.process_commands(message)
-        else:
-            bee_log("BeeBot is about to buzz a reply!")
-            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
-            await message.channel.send(reply)
-
-# Slash commands
 @bot.tree.command(name="bee_fact", description="Get a random bee-related fact")
 async def bee_fact(interaction: discord.Interaction):
     await interaction.response.send_message(random.choice(facts))
@@ -353,7 +342,6 @@ async def bee_name(interaction: discord.Interaction):
     bee_log(f"Generated bee name: {name} for user {interaction.user} in guild {interaction.guild}")
 
     try:
-        # Fetch member directly to avoid cache issues
         member = await interaction.guild.fetch_member(interaction.user.id)
         bee_log(f"Fetched member: {member} (ID: {member.id})")
 
@@ -399,8 +387,9 @@ async def ask(interaction: discord.Interaction, question: str):
 
 @bot.tree.command(name="bee_validate", description="Get emotional validation")
 async def bee_validate(interaction: discord.Interaction):
-    await interaction.response.send_message("You're doing great! Keep buzzing!")
+    await interaction.response.send_message("You're doing great! Keep buzzing! 💛")
 
+# 🛡️ Privacy & Consent Command
 @bot.tree.command(name="consent", description="Manage your privacy consent")
 @app_commands.describe(choice="on, off, or info")
 async def consent(interaction: discord.Interaction, choice: str):
@@ -411,7 +400,7 @@ async def consent(interaction: discord.Interaction, choice: str):
     else:
         r.set(f"consent:{interaction.user.id}", choice.lower())
         await interaction.response.send_message(f"Consent {choice.lower()}.")
-
+# 📅 Reminders
 @bot.tree.command(name="set_reminder", description="Set a personal reminder")
 @app_commands.describe(time="When to remind", reminder="What to remind you of")
 async def set_reminder(interaction: discord.Interaction, time: str, reminder: str):
@@ -426,6 +415,7 @@ async def get_reminders(interaction: discord.Interaction):
 async def delete_reminder(interaction: discord.Interaction, index: int):
     await interaction.response.send_message(f"Reminder {index} deleted.")
 
+# 🌍 Crisis Support Info
 @bot.tree.command(name="crisis", description="View global crisis helplines")
 async def crisis(interaction: discord.Interaction):
     help_lines = """
@@ -443,72 +433,57 @@ async def crisis(interaction: discord.Interaction):
     """
     await interaction.response.send_message(help_lines)
 
+# 🐝 BeeBot Help Menu
 @bot.tree.command(name="bee_help", description="List BeeBot commands")
 async def bee_help(interaction: discord.Interaction):
     await interaction.response.send_message("""
 🐝 BeeBot Full Command List
 🧠 General Info & Fun
 
-/bee_fact — Get a random bee-related fact
-
-/bee_fortune — Receive a bee-themed fortune
-
-/bee_joke — Hear a bee joke
-
-/bee_name — Generate a random bee name
-
-/bee_question — Get a deep or fun question to think about
-
-/bee_quiz — Take a random bee quiz (multiple choice)
-
-/bee_species — Learn about a random bee species
-
-/bee_validate — Get some emotional validation
+/bee_fact — Get a random bee-related fact  
+/bee_fortune — Receive a bee-themed fortune  
+/bee_joke — Hear a bee joke  
+/bee_name — Generate a random bee name  
+/bee_question — Get a deep or fun question to think about  
+/bee_quiz — Take a random bee quiz (multiple choice)  
+/bee_species — Learn about a random bee species  
+/bee_validate — Get some emotional validation  
 
 🤖 AI & Interaction
 
-/ask — Ask BeeBot any question using AI
-
-/autoreply — Enable or disable AI auto-reply in the current channel
-
-/dm — Get a direct message from BeeBot for cozy support
-
-/invite — Invite BeeBot to your own server
+/ask — Ask BeeBot any question using AI  
+/autoreply — Enable or disable AI auto-reply in the current channel  
+/dm — Get a direct message from BeeBot for cozy support  
+/invite — Invite BeeBot to your own server  
 
 🛠️ Context & Emotion Debugging
 
-/debug_context — View a user’s recent message context and emotion
-
-/clear_context — Clear saved context and emotion for a user
+/debug_context — View a user’s recent message context and emotion  
+/clear_context — Clear saved context and emotion for a user  
 
 📢 Announcements & Channel Setup
 
-/announce — Send an announcement to the designated channel
-
-/set_version_channel — Set the current channel for version logs
-
-/set_announcement_channel — Set the current channel for announcements
-
-/set_error_channel — Set the current channel for error messages
+/announce — Send an announcement to the designated channel  
+/set_version_channel — Set the current channel for version logs  
+/set_announcement_channel — Set the current channel for announcements  
+/set_error_channel — Set the current channel for error messages  
 
 📅 Reminders
 
-/set_reminder — Set a personal reminder
-
-/get_reminders — View your active reminders
-
-/delete_reminder — Delete a reminder by index
+/set_reminder — Set a personal reminder  
+/get_reminders — View your active reminders  
+/delete_reminder — Delete a reminder by index  
 
 🛡️ Privacy & Consent
 
-/consent — Manage your data consent settings
+/consent — Manage your data consent settings  
 
 💛 Support
 
 /crisis — View global crisis helplines
-
 """)
 
+# 🛠️ Channel Configuration
 @bot.tree.command(name="set_version_channel", description="Set this channel as the version log")
 async def set_version_channel(interaction: discord.Interaction):
     r.set(f"channel:version:{interaction.guild.id}", interaction.channel.id)
@@ -531,23 +506,15 @@ async def autoreply(interaction: discord.Interaction, mode: str = None):
     channel_id = str(channel.id)
     channel_key = f"autoreply:{channel_id}"
 
-    # If no mode is given, show current status
     if mode is None:
         value = r.get(channel_key)
-
-        if value:
-            status = value
-        else:
-            # Default: ON in threads, OFF otherwise
-            status = "on" if isinstance(channel, discord.Thread) else "off"
-
+        status = value or ("on" if isinstance(channel, discord.Thread) else "off")
         await interaction.response.send_message(
             f"💬 Auto-reply is currently **{status}** in this channel.",
             ephemeral=True
         )
         return
 
-    # Normalize and validate mode input
     mode = mode.lower()
     if mode not in ["on", "off"]:
         await interaction.response.send_message("⚠️ Mode must be either `on` or `off`.", ephemeral=True)
@@ -557,6 +524,7 @@ async def autoreply(interaction: discord.Interaction, mode: str = None):
     print(f"Auto-reply set to {mode} for channel {channel.name} ({channel.id})")
     await interaction.response.send_message(f"✅ Auto-reply has been turned **{mode}** in this channel.")
 
+# 📢 Announcement Command with Role Check
 @bot.tree.command(name="announce", description="Send an announcement to the configured announcement channel.")
 @app_commands.describe(title="The title of your announcement", description="The body of your announcement")
 async def announce(interaction: Interaction, title: str, description: str):
@@ -589,15 +557,13 @@ async def announce(interaction: Interaction, title: str, description: str):
             )
             return
 
-        # Create embed
         embed = discord.Embed(
             title=f"📢 {title}",
             description=description,
             color=discord.Color.gold()
-            )
+        )
         embed.set_footer(text=f"Posted by {member.display_name}", icon_url=member.display_avatar.url)
-        embed.timestamp = discord.utils.utcnow()
-
+        embed.timestamp = datetime.now(timezone.utc)  # ✅ Fixed deprecated utcnow()
 
         await announcement_channel.send(embed=embed)
         await interaction.followup.send("✅ Announcement sent!", ephemeral=True)
@@ -605,11 +571,11 @@ async def announce(interaction: Interaction, title: str, description: str):
 
     except discord.Forbidden:
         await interaction.followup.send("❌ I don't have permission to send messages in that channel.", ephemeral=True)
-        print("Announcement failed: Forbidden")
     except discord.HTTPException as e:
         await interaction.followup.send("⚠️ Failed to send the announcement due to an error.", ephemeral=True)
         print(f"Announcement error: {e}")
 
+# 🧠 Debugging Tools for Context & Emotion
 @bot.tree.command(name="debug_context", description="View recent context and emotion")
 @app_commands.describe(target="Mention a user to inspect")
 async def debug_context(interaction: Interaction, target: discord.User):
@@ -633,6 +599,7 @@ async def clear_context(interaction: Interaction, target: discord.User):
     r.delete(f"emotion:{thread_id}:{target.id}")
     await interaction.response.send_message(f"🧹 Cleared context and emotion for {target.mention}.", ephemeral=True)
 
+# 🎭 Serious Personality Toggle
 @bot.tree.command(name="serious_mode", description="Toggle BeeBot serious personality")
 @app_commands.describe(mode="on or off")
 async def serious_mode(interaction: discord.Interaction, mode: str):
@@ -642,12 +609,14 @@ async def serious_mode(interaction: discord.Interaction, mode: str):
     r.set("serious_mode", mode.lower())
     await interaction.response.send_message(f"Serious mode is now **{mode.lower()}**.", ephemeral=True)
 
+# 🕊️ Invite BeeBot to another server
 @bot.tree.command(name="invite", description="Get BeeBot's invite link to add it to your server")
 async def invite(interaction: discord.Interaction):
     app_info = await bot.application_info()
-    invite_url = f"https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934742681681&integration_type=0&scope=bot+applications.commands"
+    invite_url = f"https://discord.com/oauth2/authorize?client_id={app_info.id}&permissions=1689934742681681&integration_type=0&scope=bot+applications.commands"
     await interaction.response.send_message(f"🐝 **Invite BeeBot to your server!**\n{invite_url}")
 
+# 💌 Cozy DM from BeeBot
 @bot.tree.command(name="dm", description="Receive a direct message from BeeBot")
 async def dm(interaction: discord.Interaction):
     try:
