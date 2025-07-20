@@ -424,17 +424,23 @@ async def bee_name(interaction: discord.Interaction):
         member = await interaction.guild.fetch_member(interaction.user.id)
         bee_log(f"Fetched member: {member} (ID: {member.id})")
 
+        if interaction.guild.owner_id == member.id:
+            await interaction.response.send_message(
+                f"🛑 You're the server owner—I can't change your nickname. But your bee name is: **{name}**."
+            )
+            return
+
         await member.edit(nick=name)
         await interaction.response.send_message(f"🐝 Your new bee name is **{name}**! Buzz buzz~")
 
     except discord.Forbidden:
         await interaction.response.send_message(
-            f"❌ I couldn’t change your nickname due to permission issues. But your bee name is: **{name}**."
+            f"🚫 I don't have permission to change your nickname. Is my role high enough? Your bee name is still: **{name}**."
         )
 
     except discord.HTTPException as e:
         await interaction.response.send_message(
-            f"⚠️ Something went wrong setting your nickname, but here’s your bee name: **{name}**.\nError: {e}"
+            f"⚠️ Something went wrong setting your nickname, but here’s your bee name: **{name}**.\nError: `{e}`"
         )
 
     except Exception as e:
