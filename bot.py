@@ -322,6 +322,85 @@ def ai_response(prompt, user_id=None, channel_id=None):
     except Exception as e:
         bee_log(f"Oh no! Error in AI response: {e}")
         return "Oops! My wings got tangled while thinking. Try again soon!"
+
+@bot.event
+async def on_ready():
+    bee_log(f"Buzz buzz! I just logged in as {bot.user.name}! I'm ready to fly! 🎉")
+    await bot.tree.sync()
+    bee_log(f"Synced slash commands globally!")
+
+    for guild in bot.guilds:
+        bee_log(f"Setting up channels for guild: {guild.name}")
+
+        # 🔔 Version channel setup
+        version_id = r.get(f"channel:version:{guild.id}")
+        if version_id:
+            channel = bot.get_channel(int(version_id))
+            if channel:
+                await channel.send(
+                    f"🐝 **BeeBot v{version_text.splitlines()[5]} is online!**\n"
+                    f"Buzz buzz! Ready to support in **{guild.name}**.\n"
+                    f"Synced commands. Type `/bee_help` to see what's new!"
+                )
+                await channel.send(f"📜 Full version log:\n```\n{version_text}\n```")
+                bee_log(f"Sent startup message and full version.txt to #{channel.name} in {guild.name}")
+            else:
+                bee_log(f"Version channel ID {version_id} not found in guild {guild.name}.")
+        else:
+            bee_log(f"No version channel set for guild {guild.name}.")
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    bee_log(f"Received message from {message.author} in {message.channel}: {message.content}")
+
+    user_id = str(message.author.id)
+
+    # 📨 DM Handling with privacy check and fallback ritual response
+    if isinstance(message.channel, discord.DMChannel):
+        thread_id = f"dm:{user_id}"
+
+        if not check_privacy_consent(user_id):
+            await message.channel.send("Please use `/consent` in a server to activate BeeBot in DMs.")
+            return
+
+        store_context(user_id, thread_id, message.content)
+
+        if message.content.startswith("!"):
+            bee_log("BeeBot spotted a command in DM! Processing...")
+            await bot.process_commands(message)
+        else:
+            bee_log("BeeBot is buzzing a DM reply!")
+            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
+            await message.channel.send(reply)
+        return
+
+    # 🌐 Server or thread message handling
+    channel = message.channel
+    thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
+
+    if not check_privacy_consent(user_id):
+        await message.channel.send("Please use /consent to provide data consent before using BeeBot.")
+        return
+
+    store_context(user_id, thread_id, message.content)
+
+    # 💬 Auto-reply toggle and thread logic
+    channel_key = f"autoreply:{channel.id}"
+    value = r.get(channel_key)
+    is_thread = isinstance(channel, discord.Thread)
+
+    if value == "on" or (value is None and is_thread):
+        if message.content.startswith("!"):
+            bee_log("BeeBot spotted a command! Processing...")
+            await bot.process_commands(message)
+        else:
+            bee_log("BeeBot is about to buzz a reply!")
+            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
+            await message.channel.send(reply)
+
 # 🧠 Fun and Emotional Support Commands
 
 @bot.tree.command(name="bee_fact", description="Get a random bee-related fact")
