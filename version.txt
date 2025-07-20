@@ -1,23 +1,29 @@
 BeeBot Version Information  
-Version: 0.2.1  
-Released: July 20, 2025
+Version: 0.2.2  
+Released: July 21, 2025
 
 ─────────────────────────────────────────────────────────────
-🍯 v0.2.1 — Expanded Emotional Intelligence & Ritual Response
+🍯 v0.2.2 — Expanded Commands & DM Support
 ─────────────────────────────────────────────────────────────
 
-• Emotion Map Upgrade  
-  ▸ Added nuanced vocabulary to recognize complex emotions such as shame, rejection, overstimulation, grief, and fatigue.  
-  ▸ Updated `EMOTION_MAP` includes: sad, happy, angry, anxious, ashamed, rejected, tired, and neutral.
+• Direct Message Responsiveness  
+  ▸ BeeBot now gracefully handles DMs using contextual threading and emotion-aware replies.  
+  ▸ Added support for private conversations with personality tone variation and consent gating.
 
-• Tone-Based Ritual System  
-  ▸ Introduced `choose_response_style()` to map emotion categories to six tones: gentle, soothing, validating, supportive, cheerful, and neutral.  
-  ▸ Created `TONE_RITUALS` message bundles for each tone category to infuse empathy, comfort, and warmth into responses.
+• New Slash Commands  
+  ▸ `/dm` lets users receive a cozy DM from BeeBot with emotional tone adaptation.  
+  ▸ `/invite` generates a dynamic server invite link using the app’s client ID.  
+  ▸ `/bee_name` now auto-applies your generated bee name as your server nickname (with permissions).
 
-• AI Prompt Enrichment  
-  ▸ Refactored `ai_response()` to incorporate detected emotion, ritual messaging, and context-aware history blending.  
-  ▸ Persona switching dynamically responds to serious mode, thread status, and emotional tone.  
-  ▸ Emotional context now influences OpenAI prompts for more personalized replies.
+• Consent & Context Tweaks  
+  ▸ `on_message()` updated to handle DMs, auto-process commands, and unify context logging.  
+  ▸ DM context keys now use `dm:{user_id}` for emotional separation and privacy clarity.
 
-• Companion Responsiveness Enhancement  
-  ▸ BeeBot now shifts its voice gently for vulnerable users and brightly for celebratory ones—responding as a nurturing, emotionally attuned companion.
+• Command List Refactor  
+  ▸ Full command list updated to reflect new features, including AI, setup, support, and emotional tools.  
+  ▸ Added ephemeral feedback and error handling for nickname changes and DM permissions.
+
+─────────────────────────────────────────────────────────────
+💭 Notes  
+─────────────────────────────────────────────────────────────
+BeeBot’s emotional responsiveness continues to evolve as a gentle companion, balancing technical mastery with nurturing support.

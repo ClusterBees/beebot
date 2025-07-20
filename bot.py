@@ -274,8 +274,30 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    bee_log(f"Received message in #{message.channel}: {message.content}")
+    bee_log(f"Received message from {message.author} in {message.channel}: {message.content}")
+
     user_id = str(message.author.id)
+
+    # DM Handling
+    if isinstance(message.channel, discord.DMChannel):
+        thread_id = f"dm:{user_id}"
+
+        if not check_privacy_consent(user_id):
+            await message.channel.send("Please use `/consent` in a server to activate BeeBot in DMs.")
+            return
+
+        store_context(user_id, thread_id, message.content)
+
+        if message.content.startswith("!"):
+            bee_log("BeeBot spotted a command in DM! Processing...")
+            await bot.process_commands(message)
+        else:
+            bee_log("BeeBot is buzzing a DM reply!")
+            reply = ai_response(message.content, user_id=user_id, channel_id=thread_id)
+            await message.channel.send(reply)
+        return
+
+    # Server or thread message handling
     channel = message.channel
     thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
 
@@ -311,10 +333,22 @@ async def bee_fortune(interaction: discord.Interaction):
 async def bee_joke(interaction: discord.Interaction):
     await interaction.response.send_message(random.choice(jokes))
 
-@bot.tree.command(name="bee_name", description="Generate a random bee name")
+@bot.tree.command(name="bee_name", description="Generate and apply a random bee name as your nickname")
 async def bee_name(interaction: discord.Interaction):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
-    await interaction.response.send_message(name)
+    
+    # Try to set nickname
+    try:
+        member = interaction.guild.get_member(interaction.user.id)
+        if member:
+            await member.edit(nick=name)
+            await interaction.response.send_message(f"🐝 Your new bee name is **{name}**! Buzz buzz~")
+        else:
+            await interaction.response.send_message(f"🔍 Couldn't find your member info to update nickname, but your bee name is: **{name}**.")
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ I couldn’t change your nickname due to permission issues. But your bee name is: **{name}**.")
+    except discord.HTTPException as e:
+        await interaction.response.send_message(f"⚠️ Something went wrong setting your nickname, but here’s your bee name: **{name}**.\nError: {e}")
 
 @bot.tree.command(name="bee_question", description="Get a deep or fun question")
 async def bee_question(interaction: discord.Interaction):
@@ -386,42 +420,66 @@ async def crisis(interaction: discord.Interaction):
 @bot.tree.command(name="bee_help", description="List BeeBot commands")
 async def bee_help(interaction: discord.Interaction):
     await interaction.response.send_message("""
-**🐝 BeeBot Full Command List:**
+🐝 BeeBot Full Command List
+🧠 General Info & Fun
 
-🧠 **General Info & Fun**
-- `/bee_fact` — Get a random bee-related fact.
-- `/bee_fortune` — Receive a bee-themed fortune.
-- `/bee_joke` — Hear a bee joke.
-- `/bee_name` — Generate a random bee name.
-- `/bee_question` — Get a deep or fun question to think about.
-- `/bee_quiz` — Take a random bee quiz (multiple choice).
-- `/bee_species` — Learn about a random bee species.
-- `/bee_validate` — Get some emotional validation.
+/bee_fact — Get a random bee-related fact
 
-🤖 **AI & Interaction**
-- `/ask` — Ask BeeBot any question using AI.
-- `/autoreply` — Enable or disable AI auto-reply in the current channel.
+/bee_fortune — Receive a bee-themed fortune
 
-🛠️ **Context & Emotion Debugging**
-- `/debug_context` — View a user’s recent message context and emotion.
-- `/clear_context` — Clear saved context and emotion for a user.
+/bee_joke — Hear a bee joke
 
-📢 **Announcements & Channel Setup**
-- `/announce` — Send an announcement to the designated channel.
-- `/set_version_channel` — Set the current channel for version logs.
-- `/set_announcement_channel` — Set the current channel for announcements.
-- `/set_error_channel` — Set the current channel for error messages.
+/bee_name — Generate a random bee name
 
-📅 **Reminders**
-- `/set_reminder` — Set a personal reminder.
-- `/get_reminders` — View your active reminders.
-- `/delete_reminder` — Delete a reminder by index.
+/bee_question — Get a deep or fun question to think about
 
-🛡️ **Privacy & Consent**
-- `/consent` — Manage your data consent settings.
+/bee_quiz — Take a random bee quiz (multiple choice)
 
-💛 **Support**
-- `/crisis` — View global crisis helplines.
+/bee_species — Learn about a random bee species
+
+/bee_validate — Get some emotional validation
+
+🤖 AI & Interaction
+
+/ask — Ask BeeBot any question using AI
+
+/autoreply — Enable or disable AI auto-reply in the current channel
+
+/dm — Get a direct message from BeeBot for cozy support
+
+/invite — Invite BeeBot to your own server
+
+🛠️ Context & Emotion Debugging
+
+/debug_context — View a user’s recent message context and emotion
+
+/clear_context — Clear saved context and emotion for a user
+
+📢 Announcements & Channel Setup
+
+/announce — Send an announcement to the designated channel
+
+/set_version_channel — Set the current channel for version logs
+
+/set_announcement_channel — Set the current channel for announcements
+
+/set_error_channel — Set the current channel for error messages
+
+📅 Reminders
+
+/set_reminder — Set a personal reminder
+
+/get_reminders — View your active reminders
+
+/delete_reminder — Delete a reminder by index
+
+🛡️ Privacy & Consent
+
+/consent — Manage your data consent settings
+
+💛 Support
+
+/crisis — View global crisis helplines
 
 """)
 
@@ -557,5 +615,19 @@ async def serious_mode(interaction: discord.Interaction, mode: str):
         return
     r.set("serious_mode", mode.lower())
     await interaction.response.send_message(f"Serious mode is now **{mode.lower()}**.", ephemeral=True)
+
+@bot.tree.command(name="invite", description="Get BeeBot's invite link to add it to your server")
+async def invite(interaction: discord.Interaction):
+    app_info = await bot.application_info()
+    invite_url = f"https://discord.com/oauth2/authorize?client_id=1390525585196847164&permissions=1689934608463953&integration_type=0&scope=bot+applications.commands"
+    await interaction.response.send_message(f"🐝 **Invite BeeBot to your server!**\n{invite_url}")
+
+@bot.tree.command(name="dm", description="Receive a direct message from BeeBot")
+async def dm(interaction: discord.Interaction):
+    try:
+        await interaction.user.send("🌼 Buzz buzz! Here's your cozy little DM from BeeBot. I'm always here when you need a gentle buzz.")
+        await interaction.response.send_message("✅ I just buzzed into your DMs!", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I couldn't send a DM—make sure they're enabled!", ephemeral=True)
 
 bot.run(DISCORD_TOKEN)
