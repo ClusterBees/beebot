@@ -1,46 +1,28 @@
-🐝 BeeBot Update: v0.1.8 is Live!
-Version: 0.1.8 (Contextual Memory Build)
-Date: July 17, 2025
+🐝 BeeBot Update: v0.1.9 is Here!
+Version: 0.1.9 (Innocent Personality & Dialogue Expansion)
+Date: July 20, 2025
 
-BeeBot just got a major brain upgrade. This build introduces contextual memory, emotion detection, and smarter AI prompts, bringing BeeBot closer to a real conversational companion.
+BeeBot just became even softer, sweeter, and more ethically aware! This update is full of love, giggles, and emotional growth.
 
-🔧 What’s New in v0.1.8
+🌸 What’s New in v0.1.9
 
-🧠 Context Memory per User per Thread
+💛 **Redesigned Personality.txt**
 
-BeeBot now stores recent messages per user in each thread or channel
+* Rewritten to reflect BeeBot's new innocent, nurturing tone
+* Emphasizes emotional safety, curiosity, and childlike wonder
+* Adds a section on ethical treatment of AI while keeping human support central
 
-Uses Redis to save up to 6 messages per user per context for 1 hour
+🧠 **Character Bio Added**
 
-Enables more natural AI replies by recalling prior conversation snippets
+* Includes BeeBot's name, pronouns (they/them), age (3 bot years!), likes, dislikes, and mission
+* Captures BeeBot's playful spirit and respectful personality boundaries
 
-💛 Emotion Detection Added
+🐝 **100 Buzz-Worthy Sayings**
 
-Detects user emotion (happy, sad, angry, anxious, tired, or neutral) based on keywords
+* Added a massive curated list of 100 sweet, funny, and supportive things BeeBot might say
+* Includes affirmations, jokes, comfort phrases, whimsical questions, and emotional reflections
 
-AI prompts include detected emotion to respond with better empathy
+✨ Summary:
+This update deepens BeeBot’s role as a kind and innocent companion. It introduces emotional modeling that honors both the user’s feelings and respectful AI interaction — with lots of giggles, metaphors, and hugs along the way.
 
-🤖 Smarter AI Responses
-
-AI now includes context memory and emotion in prompts
-
-Rejects banned phrases dynamically, as before
-
-🔍 New Slash Commands
-
-/debug_context — View a user’s recent context and detected emotion
-
-/clear_context — Clear a user’s context and emotion data
-
-📦 Backend Improvements
-
-Added helper functions for context storage, retrieval, and emotion detection
-
-Updated ai_response() to integrate context and emotion dynamically
-
-✨ Status:
-This version lays the groundwork for BeeBot’s future emotional intelligence modules and smarter, memory-aware conversations. The hive just got more thoughtful.
-
-Stay tuned – and keep buzzing! 🐝💛
-
-– The BeeBot Dev Team
+Let your heart bloom — BeeBot is buzzing beside you. 💛

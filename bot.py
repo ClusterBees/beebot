@@ -1,4 +1,4 @@
-# 🐝 BeeBot v0.1.8 (Fresh Hive Build)
+# 🐝 BeeBot v0.1.9 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
