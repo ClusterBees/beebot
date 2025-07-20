@@ -338,7 +338,7 @@ async def on_ready():
             channel = bot.get_channel(int(version_id))
             if channel:
                 await channel.send(
-                    f"🐝 **BeeBot v{version_text.splitlines()[5]} is online!**\n"
+                    f"**{version_text.splitlines()[1]} is online!**\n"
                     f"Buzz buzz! Ready to support in **{guild.name}**.\n"
                     f"Synced commands. Type `/bee_help` to see what's new!"
                 )
