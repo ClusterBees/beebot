@@ -1,4 +1,4 @@
-# 🐝 BeeBot v0.2.1 (Fresh Hive Build)
+# 🐝 BeeBot v0.2.2 (Fresh Hive Build)
 import discord
 from discord.ext import commands, tasks
 from discord import Interaction, app_commands
@@ -258,8 +258,8 @@ def ai_response(prompt, user_id=None, channel_id=None):
 @bot.event
 async def on_ready():
     bee_log(f"Buzz buzz! I just logged in as {bot.user.name}! I'm ready to fly! 🎉")
-    synced = await bot.tree.sync()
-    bee_log(f"Synced {len(synced)} slash commands globally!")
+    bot.tree.sync()
+    bee_log(f"Synced slash commands globally!")
 
     for guild in bot.guilds:
         bee_log(f"Setting up channels for guild: {guild.name}")
@@ -273,7 +273,7 @@ async def on_ready():
                 await channel.send(
                     f"🐝 **BeeBot v{version_text.splitlines()[1].split(': ')[1]} is online!**\n"
                     f"Buzz buzz! Ready to support in **{guild.name}**.\n"
-                    f"Synced {len(synced)} commands. Type `/bee_help` to see what's new!"
+                    f"Synced commands. Type `/bee_help` to see what's new!"
                 )
 
                 await channel.send(f"📜 Full version log:\n```\n{version_text}\n```")
@@ -558,8 +558,8 @@ async def autoreply(interaction: discord.Interaction, mode: str = None):
     await interaction.response.send_message(f"✅ Auto-reply has been turned **{mode}** in this channel.")
 
 @bot.tree.command(name="announce", description="Send an announcement to the configured announcement channel.")
-@app_commands.describe(message="The message you want to announce.")
-async def announce(interaction: Interaction, message: str):
+@app_commands.describe(title="The title of your announcement", description="The body of your announcement")
+async def announce(interaction: Interaction, title: str, description: str):
     await interaction.response.defer(ephemeral=True)
 
     guild = interaction.guild
@@ -591,8 +591,8 @@ async def announce(interaction: Interaction, message: str):
 
         # Create embed
         embed = discord.Embed(
-            title="📢 Announcement",
-            description=message,
+            title=f"📢 {title}",
+            description=description,
             color=discord.Color.gold()
             )
         embed.set_footer(text=f"Posted by {member.display_name}", icon_url=member.display_avatar.url)

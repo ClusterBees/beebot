@@ -1,29 +1,28 @@
-BeeBot Version Information  
-Version: 0.2.2  
-Released: July 21, 2025
+🐝 **BeeBot Version 0.2.2**  
+📅 *Released: July 21, 2025*
 
-─────────────────────────────────────────────────────────────
-🍯 v0.2.2 — Expanded Commands & DM Support
-─────────────────────────────────────────────────────────────
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━  
+🍯 **v0.2.2 — Cozy DMs & Empowered Commands**  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-• Direct Message Responsiveness  
-  ▸ BeeBot now gracefully handles DMs using contextual threading and emotion-aware replies.  
-  ▸ Added support for private conversations with personality tone variation and consent gating.
+**💌 Direct Message Responsiveness**  
+• BeeBot now lovingly responds to DMs with emotion-aware threading and adaptive tone matching.  
+• Private chats are now safe havens, gated by user consent and personalized comfort.
 
-• New Slash Commands  
-  ▸ `/dm` lets users receive a cozy DM from BeeBot with emotional tone adaptation.  
-  ▸ `/invite` generates a dynamic server invite link using the app’s client ID.  
-  ▸ `/bee_name` now auto-applies your generated bee name as your server nickname (with permissions).
+**⚙️ New Slash Commands**  
+• `/dm` delivers personalized, affirming messages directly to your inbox.  
+• `/invite` creates dynamic server invites using the app’s client ID.  
+• `/bee_name` auto-applies a custom bee name as your nickname (when allowed).
 
-• Consent & Context Tweaks  
-  ▸ `on_message()` updated to handle DMs, auto-process commands, and unify context logging.  
-  ▸ DM context keys now use `dm:{user_id}` for emotional separation and privacy clarity.
+**🔐 Consent & Context Enhancements**  
+• `on_message()` now handles DMs smoothly, logging context with precision and privacy (`dm:{user_id}`).  
+• Unified command processing makes BeeBot more reliable across all channels.
 
-• Command List Refactor  
-  ▸ Full command list updated to reflect new features, including AI, setup, support, and emotional tools.  
-  ▸ Added ephemeral feedback and error handling for nickname changes and DM permissions.
+**📝 Refactored Command List**  
+• Full command library updated to reflect latest emotional tools and support options.  
+• Nickname changes and DM handling now feature friendly ephemeral error messages.
 
-─────────────────────────────────────────────────────────────
-💭 Notes  
-─────────────────────────────────────────────────────────────
-BeeBot’s emotional responsiveness continues to evolve as a gentle companion, balancing technical mastery with nurturing support.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━  
+🌼 **Companion Notes**  
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━  
+BeeBot continues to grow as a gentle, affirming friend—balancing technical brilliance with comforting presence. Every update brings deeper care and more meaningful connection.
