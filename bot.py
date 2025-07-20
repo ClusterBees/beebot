@@ -131,7 +131,7 @@ def ai_response(prompt, user_id=None, channel_id=None):
 
     # 🔥 Serious mode is on if manually toggled, emotion is sad/angry, or if in a thread
     serious_mode = r.get("serious_mode") == "on"
-    if serious_mode or emotion in ["sad", "angry", "tired"] or is_thread:
+    if serious_mode or emotion in ["sad", "angry"] or is_thread:
         persona = load_personality("serious_personality.txt")
         bee_log("Using serious_personality.txt due to serious mode, detected emotion, or thread context.")
     else:
