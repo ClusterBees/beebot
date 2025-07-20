@@ -125,11 +125,15 @@ def ai_response(prompt, user_id=None, channel_id=None):
     context_msgs = get_context(user_id, thread_id) if user_id and thread_id else []
     emotion = get_emotion(user_id, thread_id) if user_id and thread_id else "neutral"
 
-    # 🔥 Place the serious_mode check here
+    # 🔥 Determine if current channel is a thread
+    current_channel = bot.get_channel(int(thread_id))
+    is_thread = isinstance(current_channel, discord.Thread) if current_channel else False
+
+    # 🔥 Serious mode is on if manually toggled, emotion is sad/angry, or if in a thread
     serious_mode = r.get("serious_mode") == "on"
-    if serious_mode or emotion in ["sad", "angry"]:
+    if serious_mode or emotion in ["sad", "angry", "tired"] or is_thread:
         persona = load_personality("serious_personality.txt")
-        bee_log("Using serious_personality.txt due to serious mode or detected emotion.")
+        bee_log("Using serious_personality.txt due to serious mode, detected emotion, or thread context.")
     else:
         persona = load_personality("personality.txt")
         bee_log("Using default personality.txt.")
@@ -163,8 +167,25 @@ async def on_ready():
     bee_log(f"Buzz buzz! I just logged in as {bot.user.name}! I'm ready to fly! 🎉")
     synced = await bot.tree.sync()
     bee_log(f"Synced {len(synced)} slash commands globally!")
+
     for guild in bot.guilds:
         bee_log(f"Setting up channels for guild: {guild.name}")
+
+        # Fetch version channel ID from Redis
+        version_id = r.get(f"channel:version:{guild.id}")
+        if version_id:
+            channel = bot.get_channel(int(version_id))
+            if channel:
+                await channel.send(
+                    f"🐝 **BeeBot v{version_text.splitlines()[1].split(': ')[1]} is online!**\n"
+                    f"Buzz buzz! Ready to support in **{guild.name}**.\n"
+                    f"Synced {len(synced)} commands. Type `/bee_help` to see what's new!"
+                )
+                bee_log(f"Sent startup message to #{channel.name} in {guild.name}")
+            else:
+                bee_log(f"Version channel ID {version_id} not found in guild {guild.name}.")
+        else:
+            bee_log(f"No version channel set for guild {guild.name}.")
 
 @bot.event
 async def on_message(message):

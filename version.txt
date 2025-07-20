@@ -1,25 +1,55 @@
-🐝 BeeBot Update: v0.2.0 is Here!
-Version: 0.2.0 (Serious Mode & Clinical Info Expansion)
-Date: July 20, 2025
+🐝 BeeBot Updates: v0.1.9 ➔ v0.2.0
 
-BeeBot just became even more versatile, calm, and clinically informed. This update introduces a grounded support mode for serious topics alongside general personality improvements.
+---
 
-🌟 What’s New in v0.2.0
+🔖 **Version: 0.1.9 (Innocent Personality & Dialogue Expansion)**
+📅 **Date:** July 20, 2025
 
-💛 **Serious Personality Integration**
-* Added `serious_personality.txt` with a calm, direct, professional tone
-* Automatically switches to serious mode when user emotions include sadness or anger
-* Optional admin command `/serious_mode` to toggle serious responses manually
+BeeBot became softer, sweeter, and more ethically aware in this release.
 
-🧠 **Cluster B Personality Disorders Info Module**
-* Provides general, clinically accurate information on BPD, NPD, HPD, and ASPD
-* Maintains a non-judgmental, factual, and ethical approach
-* Reinforces disclaimers about AI limitations and encourages professional evaluation
+🌸 **What was new in v0.1.9**
+- 💛 **Redesigned Personality.txt**
+  * Rewritten for an innocent, nurturing tone
+  * Emphasized emotional safety, curiosity, and childlike wonder
+  * Added ethical AI treatment reminders
 
-⚙️ **Personality Loader Refactor**
-* Modularized personality loading for easier expansion of BeeBot modes
+- 🧠 **Character Bio Added**
+  * Name, pronouns (they/them), age (3 bot years!)
+  * Likes, dislikes, mission
 
-✨ Summary:
-This update empowers BeeBot to support users with both **warm innocence** and **calm, grounded seriousness** depending on context. It extends mental health psychoeducation features while preserving empathy, boundaries, and clarity.
+- 🐝 **100 Buzz-Worthy Sayings**
+  * Affirmations, jokes, comfort phrases, whimsical questions, emotional reflections
 
-BeeBot now adapts to the tone you need most — ready to listen, inform, and support with heart-coded care. 💛
+✨ **Summary**
+Deepened BeeBot’s role as a kind, innocent companion, modeling emotional care with giggles and sunshine.
+
+---
+
+🔖 **Version: 0.2.0 (Serious Mode & Clinical Info Expansion)**
+📅 **Date:** July 20, 2025
+
+BeeBot became more versatile, calm, and clinically informed with this release.
+
+🌟 **What’s new in v0.2.0**
+- 💛 **Serious Personality Integration**
+  * Added `serious_personality.txt` with a calm, direct, professional tone
+  * Auto-switches to serious mode in threads or when user emotions are sad/angry
+  * Optional `/serious_mode` admin toggle
+
+- 🧠 **Cluster B Personality Disorders Info Module**
+  * Provides general, clinically accurate information on BPD, NPD, HPD, and ASPD
+  * Uses neutral, non-stigmatizing language
+  * Reinforces disclaimers about AI limitations and encourages professional evaluation
+
+- ⚙️ **Personality Loader Refactor**
+  * Modularized personality loading for expansion
+
+- 🔧 **Startup Announcements**
+  * BeeBot now announces its online status and synced commands in version log channels upon startup
+
+✨ **Summary**
+BeeBot now adapts to provide either warm innocence or grounded seriousness based on context. Expanded mental health psychoeducation features while preserving empathy, boundaries, and clarity.
+
+---
+
+🐝 **Ready to buzz softly or speak calmly, depending on what your heart needs most today.**
