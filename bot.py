@@ -278,7 +278,7 @@ async def on_message(message):
 
     user_id = str(message.author.id)
 
-    # DM Handling
+    # 📨 DM Handling
     if isinstance(message.channel, discord.DMChannel):
         thread_id = f"dm:{user_id}"
 
@@ -297,7 +297,7 @@ async def on_message(message):
             await message.channel.send(reply)
         return
 
-    # Server or thread message handling
+    # 🌐 Server or thread message handling
     channel = message.channel
     thread_id = str(channel.id if not isinstance(channel, discord.Thread) else channel.parent_id)
 
