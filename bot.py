@@ -255,12 +255,15 @@ async def on_ready():
         if version_id:
             channel = bot.get_channel(int(version_id))
             if channel:
+                # Send both a friendly version ping and the full version.txt contents
                 await channel.send(
                     f"🐝 **BeeBot v{version_text.splitlines()[1].split(': ')[1]} is online!**\n"
                     f"Buzz buzz! Ready to support in **{guild.name}**.\n"
                     f"Synced {len(synced)} commands. Type `/bee_help` to see what's new!"
                 )
-                bee_log(f"Sent startup message to #{channel.name} in {guild.name}")
+
+                await channel.send(f"📜 Full version log:\n```\n{version_text}\n```")
+                bee_log(f"Sent startup message and full version.txt to #{channel.name} in {guild.name}")
             else:
                 bee_log(f"Version channel ID {version_id} not found in guild {guild.name}.")
         else:
