@@ -271,7 +271,7 @@ async def on_ready():
             if channel:
                 # Send both a friendly version ping and the full version.txt contents
                 await channel.send(
-                    f"🐝 **BeeBot v{version_text.splitlines()[1].split(': ')[1]} is online!**\n"
+                    f"🐝 **BeeBot v{version_text.splitlines()[5]} is online!**\n"
                     f"Buzz buzz! Ready to support in **{guild.name}**.\n"
                     f"Synced commands. Type `/bee_help` to see what's new!"
                 )
