@@ -336,19 +336,31 @@ async def bee_joke(interaction: discord.Interaction):
 @bot.tree.command(name="bee_name", description="Generate and apply a random bee name as your nickname")
 async def bee_name(interaction: discord.Interaction):
     name = f"{random.choice(prefixes)}{random.choice(suffixes)}"
-    
-    # Try to set nickname
+    bee_log(f"Generated bee name: {name} for user {interaction.user} in guild {interaction.guild}")
+
     try:
-        member = interaction.guild.get_member(interaction.user.id)
-        if member:
-            await member.edit(nick=name)
-            await interaction.response.send_message(f"🐝 Your new bee name is **{name}**! Buzz buzz~")
-        else:
-            await interaction.response.send_message(f"🔍 Couldn't find your member info to update nickname, but your bee name is: **{name}**.")
+        # Fetch member directly to avoid cache issues
+        member = await interaction.guild.fetch_member(interaction.user.id)
+        bee_log(f"Fetched member: {member} (ID: {member.id})")
+
+        await member.edit(nick=name)
+        await interaction.response.send_message(f"🐝 Your new bee name is **{name}**! Buzz buzz~")
+
     except discord.Forbidden:
-        await interaction.response.send_message(f"❌ I couldn’t change your nickname due to permission issues. But your bee name is: **{name}**.")
+        await interaction.response.send_message(
+            f"❌ I couldn’t change your nickname due to permission issues. But your bee name is: **{name}**."
+        )
+
     except discord.HTTPException as e:
-        await interaction.response.send_message(f"⚠️ Something went wrong setting your nickname, but here’s your bee name: **{name}**.\nError: {e}")
+        await interaction.response.send_message(
+            f"⚠️ Something went wrong setting your nickname, but here’s your bee name: **{name}**.\nError: {e}"
+        )
+
+    except Exception as e:
+        bee_log(f"Unexpected error changing nickname: {e}")
+        await interaction.response.send_message(
+            f"🔍 Couldn't find your member info to update nickname, but your bee name is: **{name}**."
+        )
 
 @bot.tree.command(name="bee_question", description="Get a deep or fun question")
 async def bee_question(interaction: discord.Interaction):
