@@ -601,7 +601,7 @@ async def announce(interaction: Interaction, title: str, description: str):
 
         await announcement_channel.send(embed=embed)
         await interaction.followup.send("✅ Announcement sent!", ephemeral=True)
-        print(f"Sent announcement to #{announcement_channel.name} in {guild.name}: {message}")
+        print(f"Sent announcement to #{announcement_channel.name} in {guild.name}: {title}")
 
     except discord.Forbidden:
         await interaction.followup.send("❌ I don't have permission to send messages in that channel.", ephemeral=True)
@@ -621,7 +621,7 @@ async def debug_context(interaction: Interaction, target: discord.User):
     else:
         msg_log = "\n".join([f"- {m}" for m in reversed(context)])
         await interaction.response.send_message(
-            f"🧠 **Context for {target.mention}**\n```\n{msg_log}\n```\n❤️ Emotion: **{emotion}**",
+            f"🧠 **Context for {target.mention}**\n```\n{msg_log}\n```\n ❤️ Emotion: **{emotion}**",
             ephemeral=True
         )
 
